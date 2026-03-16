@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 需求管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .logo h1 {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input.error {
+            border-color: #e74c3c;
+            animation: shake 0.3s ease;
+        }
+
+        .form-group input.success {
+            border-color: #27ae60;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .forgot-password {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .forgot-password:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-error {
+            background: #fde8e8;
+            color: #c0392b;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #27ae60;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.6;
+        }
+
+        .password-requirements ul {
+            margin-left: 20px;
+            margin-top: 5px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 1px solid #e1e1e1;
+            font-size: 13px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <div class="logo-icon">📋</div>
+            <h1>需求管理系统</h1>
+            <p>Requirements Management System</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <form id="loginForm" novalidate>
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    placeholder="请输入用户名"
+                    autocomplete="username"
+                    required
+                >
+                <div class="error-message" id="usernameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    placeholder="请输入密码"
+                    autocomplete="current-password"
+                    required
+                >
+                <div class="password-requirements">
+                    密码要求：
+                    <ul>
+                        <li>至少 6 个字符</li>
+                    </ul>
+                </div>
+                <div class="error-message" id="passwordError"></div>
+            </div>
+
+            <div class="form-options">
+                <label class="remember-me">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <span>记住密码</span>
+                </label>
+                <a href="#" class="forgot-password" onclick="showForgotPassword()">忘记密码？</a>
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                登录
+            </button>
+        </form>
+
+        <div class="footer">
+            <p>© 2026 需求管理系统 | 陈先生团队</p>
+        </div>
+    </div>
+
+    <script>
+        // 验证规则
+        const validationRules = {
+            username: {
+                minLength: 3,
+                maxLength: 20,
+                pattern: /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/,
+                message: '用户名必须以字母开头，长度 3-20 个字符，只能包含字母、数字和下划线'
+            },
+            password: {
+                minLength: 6,
+                pattern: /^.{6,}$/,
+                message: '密码至少 6 个字符'
+            }
+        };
+
+        // 服务器 API 地址
+        const API_URL = 'http://8.215.93.217:8001';
+
+        // DOM 元素
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const rememberMeCheckbox = document.getElementById('rememberMe');
+        const loginBtn = document.getElementById('loginBtn');
+        const alertDiv = document.getElementById('alert');
+        const usernameError = document.getElementById('usernameError');
+        const passwordError = document.getElementById('passwordError');
+
+        // 页面加载时检查记住的密码
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUsername = localStorage.getItem('savedUsername');
+            const savedPassword = localStorage.getItem('savedPassword');
+            
+            if (savedUsername) {
+                usernameInput.value = savedUsername;
+                usernameInput.classList.add('success');
+            }
+            
+            if (savedPassword) {
+                passwordInput.value = savedPassword;
+                rememberMeCheckbox.checked = true;
+            }
+        });
+
+        // 实时验证
+        usernameInput.addEventListener('blur', () => validateUsername());
+        passwordInput.addEventListener('blur', () => validatePassword());
+
+        usernameInput.addEventListener('input', () => {
+            usernameInput.classList.remove('error', 'success');
+            usernameError.classList.remove('show');
+        });
+
+        passwordInput.addEventListener('input', () => {
+            passwordInput.classList.remove('error', 'success');
+            passwordError.classList.remove('show');
+        });
+
+        // 验证用户名
+        function validateUsername() {
+            const value = usernameInput.value.trim();
+            
+            if (!value) {
+                showFieldError(usernameInput, usernameError, '用户名不能为空');
+                return false;
+            }
+            
+            if (value.length < validationRules.username.minLength || 
+                value.length > validationRules.username.maxLength) {
+                showFieldError(usernameInput, usernameError, validationRules.username.message);
+                return false;
+            }
+            
+            if (!validationRules.username.pattern.test(value)) {
+                showFieldError(usernameInput, usernameError, validationRules.username.message);
+                return false;
+            }
+            
+            showFieldSuccess(usernameInput);
+            return true;
+        }
+
+        // 验证密码
+        function validatePassword() {
+            const value = passwordInput.value;
+            
+            if (!value) {
+                showFieldError(passwordInput, passwordError, '密码不能为空');
+                return false;
+            }
+            
+            if (!validationRules.password.pattern.test(value)) {
+                showFieldError(passwordInput, passwordError, validationRules.password.message);
+                return false;
+            }
+            
+            showFieldSuccess(passwordInput);
+            return true;
+        }
+
+        // 显示字段错误
+        function showFieldError(input, errorDiv, message) {
+            input.classList.add('error');
+            input.classList.remove('success');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // 显示字段成功
+        function showFieldSuccess(input) {
+            input.classList.add('success');
+            input.classList.remove('error');
+        }
+
+        // 显示全局提示
+        function showAlert(message, type) {
+            alertDiv.textContent = message;
+            alertDiv.className = `alert alert-${type} show`;
+            
+            setTimeout(() => {
+                alertDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // 登录表单提交
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 验证所有字段
+            const isUsernameValid = validateUsername();
+            const isPasswordValid = validatePassword();
+            
+            if (!isUsernameValid || !isPasswordValid) {
+                showAlert('请检查输入格式是否正确', 'error');
+                return;
+            }
+            
+            // 禁用按钮
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            
+            try {
+                // 调用真实后端 API
+                const response = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 登录成功
+                    // 保存用户信息到 sessionStorage
+                    sessionStorage.setItem('currentUser', JSON.stringify(result.data));
+                    
+                    if (rememberMeCheckbox.checked) {
+                        localStorage.setItem('savedUsername', username);
+                        localStorage.setItem('savedPassword', password);
+                    } else {
+                        localStorage.removeItem('savedUsername');
+                        localStorage.removeItem('savedPassword');
+                    }
+                    
+                    showAlert('登录成功！正在跳转...', 'success');
+                    
+                    // 跳转到需求管理界面
+                    setTimeout(() => {
+                        window.location.href = '/requirements.html';
+                    }, 1000);
+                } else {
+                    // 登录失败
+                    showAlert(result.message || '用户名或密码错误，请重试', 'error');
+                    passwordInput.value = '';
+                    passwordInput.classList.add('error');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '登录';
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                showAlert('网络连接失败，请稍后重试', 'error');
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
+        });
+
+        // 忘记密码
+        function showForgotPassword() {
+            alert('忘记密码功能开发中...\n请联系管理员重置密码');
+        }
+    </script>
+</body>
+</html>

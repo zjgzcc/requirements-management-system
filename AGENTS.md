@@ -134,6 +134,8 @@ Default heartbeat prompt:
 
 You are free to edit `HEARTBEAT.md` with a short checklist or reminders. Keep it small to limit token burn.
 
+**⚙️ Heartbeat Interval: 1 分钟** (已配置为 1 分钟 1 次，避免卡顿和死机问题)
+
 ### Heartbeat vs Cron: When to Use Each
 
 **Use heartbeat when:**

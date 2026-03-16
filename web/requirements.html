@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>需求管理 - 需求管理系统</title>
+    <!-- Quill 编辑器样式 -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 0 30px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { font-size: 32px; }
+        .logo h1 { color: #333; font-size: 20px; font-weight: 600; }
+        .user-menu { display: flex; align-items: center; gap: 20px; }
+        .current-user {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 16px; background: #f5f5f5;
+            border-radius: 8px; color: #333; font-size: 14px;
+        }
+        .user-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 600; font-size: 14px;
+        }
+        .user-actions { display: flex; gap: 10px; }
+        .btn-outline {
+            padding: 8px 16px; border: 1px solid #667eea;
+            background: transparent; color: #667eea;
+            border-radius: 6px; cursor: pointer; font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn-outline:hover { background: #667eea; color: white; }
+        .btn-danger {
+            padding: 8px 16px; border: 1px solid #e74c3c;
+            background: transparent; color: #e74c3c;
+            border-radius: 6px; cursor: pointer; font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn-danger:hover { background: #e74c3c; color: white; }
+        .main-container { margin-top: 70px; padding: 30px; min-height: calc(100vh - 70px); }
+        .content-card {
+            background: white; border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px; min-height: calc(100vh - 130px);
+        }
+        .tabs {
+            display: flex; gap: 10px; margin-bottom: 30px;
+            border-bottom: 2px solid #e1e1e1; padding-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 24px; border: none; background: transparent;
+            color: #666; font-size: 15px; cursor: pointer;
+            border-radius: 8px 8px 0 0; transition: all 0.3s ease;
+        }
+        .tab:hover { background: #f5f5f5; color: #667eea; }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .toolbar {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 20px;
+            gap: 15px; flex-wrap: wrap;
+        }
+        .project-select { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .project-select select {
+            padding: 10px 16px; border: 2px solid #e1e1e1;
+            border-radius: 8px; font-size: 14px;
+            min-width: 250px; cursor: pointer;
+        }
+        .project-select select:focus { outline: none; border-color: #667eea; }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-primary {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 14px; font-weight: 500;
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 6px;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            padding: 10px 20px; background: #f5f5f5; color: #333;
+            border: 1px solid #e1e1e1; border-radius: 8px;
+            cursor: pointer; font-size: 14px; font-weight: 500;
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 6px;
+        }
+        .btn-secondary:hover { background: #e1e1e1; }
+        .table-container {
+            overflow-x: auto; border: 1px solid #e1e1e1;
+            border-radius: 8px; margin-top: 20px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 14px 16px; text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 16px; border-bottom: 1px solid #e1e1e1;
+            vertical-align: top;
+        }
+        tr:hover { background: #f9f9ff; }
+        tr.header-row { background: #f0f4ff; }
+        tr.header-row:hover { background: #e8efff; }
+        .table-actions { display: flex; gap: 8px; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+        .btn-icon { padding: 6px 10px; font-size: 16px; }
+        .editable {
+            min-height: 20px; padding: 4px 8px;
+            border-radius: 4px; cursor: text;
+        }
+        .editable:hover { background: #f5f5f5; }
+        .editable:focus {
+            outline: none; background: white;
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .matrix-container { overflow-x: auto; margin-top: 20px; }
+        .matrix-table { border-collapse: collapse; font-size: 13px; }
+        .matrix-table th, .matrix-table td {
+            border: 1px solid #e1e1e1; padding: 10px 12px; text-align: center;
+        }
+        .matrix-table th { background: #f5f5f5; font-weight: 600; }
+        .matrix-table td:first-child {
+            background: #fafafa; font-weight: 500;
+            text-align: left; min-width: 120px;
+        }
+        .trace-checkbox { width: 20px; height: 20px; cursor: pointer; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: white; border-radius: 12px;
+            width: 90%; max-width: 900px; max-height: 90vh;
+            overflow-y: auto; transform: scale(0.9);
+            transition: all 0.3s ease;
+        }
+        
+        /* 富文本编辑器样式 */
+        .editor-container {
+            margin-bottom: 20px;
+        }
+        .editor-container .ql-toolbar {
+            border: 2px solid #e1e1e1 !important;
+            border-radius: 8px 8px 0 0 !important;
+            background: #fafafa;
+        }
+        .editor-container .ql-container {
+            border: 2px solid #e1e1e1 !important;
+            border-radius: 0 0 8px 8px !important;
+            font-family: inherit !important;
+            font-size: 14px !important;
+            min-height: 200px;
+        }
+        .editor-container .ql-container.ql-focused {
+            border-color: #667eea !important;
+        }
+        .ql-editor {
+            min-height: 200px;
+        }
+        .attachment-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9ff;
+            border-radius: 8px;
+        }
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .attachment-item:last-child {
+            margin-bottom: 0;
+        }
+        .attachment-icon {
+            font-size: 20px;
+        }
+        .attachment-name {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+        .attachment-size {
+            font-size: 12px;
+            color: #999;
+        }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal-header {
+            padding: 24px 30px; border-bottom: 1px solid #e1e1e1;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h2 { color: #333; font-size: 20px; font-weight: 600; }
+        .close-btn {
+            width: 32px; height: 32px; border: none;
+            background: #f5f5f5; border-radius: 50%;
+            cursor: pointer; font-size: 20px; color: #666;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .close-btn:hover { background: #e1e1e1; }
+        .modal-body { padding: 30px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block; margin-bottom: 8px;
+            color: #333; font-weight: 500; font-size: 14px;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 12px 16px; border: 2px solid #e1e1e1;
+            border-radius: 8px; font-size: 14px; font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none; border-color: #667eea;
+        }
+        .form-group textarea { min-height: 120px; resize: vertical; }
+        .modal-footer {
+            padding: 20px 30px; border-top: 1px solid #e1e1e1;
+            display: flex; justify-content: flex-end; gap: 10px;
+        }
+        .toast {
+            position: fixed; top: 100px; right: 30px;
+            padding: 16px 24px; border-radius: 8px;
+            color: white; font-size: 14px; font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            transform: translateX(400px); transition: all 0.3s ease;
+            z-index: 3000;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); }
+        .toast.error { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state-icon { font-size: 64px; margin-bottom: 20px; }
+        .empty-state h3 { font-size: 18px; margin-bottom: 10px; color: #666; }
+        
+        /* 批量操作栏 */
+        .batch-actions {
+            display: flex; align-items: center; gap: 15px;
+            padding: 15px; background: #f0f4ff;
+            border-radius: 8px; margin-bottom: 15px;
+        }
+        .checkbox-wrapper { display: flex; align-items: center; gap: 8px; }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer;
+        }
+        .selected-count {
+            padding: 4px 12px; background: #667eea;
+            color: white; border-radius: 20px;
+            font-size: 13px; font-weight: 500;
+        }
+        
+        /* 历史记录 */
+        .history-list {
+            max-height: 400px; overflow-y: auto;
+            border: 1px solid #e1e1e1; border-radius: 8px;
+        }
+        .history-item {
+            padding: 12px 16px; border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        .history-item:hover { background: #f9f9ff; }
+        .history-time { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .history-action { font-size: 13px; color: #333; font-weight: 500; }
+        .history-action.create { color: #27ae60; }
+        .history-action.update { color: #3498db; }
+        .history-action.delete { color: #e74c3c; }
+        .history-action.baseline { color: #9b59b6; }
+        .history-changes {
+            font-size: 12px; color: #666; margin-top: 6px;
+            padding-left: 12px; border-left: 2px solid #e1e1e1;
+        }
+        
+        /* 基线版本列表 */
+        .baseline-list {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px; margin-top: 15px;
+        }
+        .baseline-card {
+            padding: 16px; background: #f9f9ff;
+            border: 2px solid #e1e1e1; border-radius: 8px;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .baseline-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .baseline-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+        }
+        .baseline-version {
+            display: inline-block; padding: 2px 8px;
+            background: #667eea; color: white;
+            border-radius: 4px; font-size: 12px;
+            font-weight: 600; margin-bottom: 8px;
+        }
+        .baseline-name { font-weight: 600; color: #333; margin-bottom: 4px; }
+        .baseline-info { font-size: 12px; color: #666; }
+        .baseline-compare {
+            margin-top: 20px; padding: 20px;
+            background: #fff9e6; border-radius: 8px;
+            border: 2px dashed #f39c12;
+        }
+        
+        /* 标题层级样式 */
+        .header-indicator {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .header-level-1 { font-size: 18px; font-weight: 700; color: #333; padding-left: 0; }
+        .header-level-2 { font-size: 16px; font-weight: 600; color: #444; padding-left: 20px; }
+        .header-level-3 { font-size: 15px; font-weight: 600; color: #555; padding-left: 40px; }
+        .header-level-4 { font-size: 14px; font-weight: 500; color: #666; padding-left: 60px; }
+        
+        /* 前缀按钮 */
+        .prefix-btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .prefix-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #e1e1e1;
+            background: #f5f5f5;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .prefix-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .prefix-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">📋</span>
+            <h1>需求管理系统</h1>
+        </div>
+        <div class="user-menu">
+            <div class="current-user">
+                <div class="user-avatar" id="userAvatar"></div>
+                <span id="currentUsername"></span>
+            </div>
+            <div class="user-actions">
+                <button class="btn-outline" onclick="switchUser()">切换用户</button>
+                <button class="btn-danger" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="content-card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('requirements')">需求管理</button>
+                <button class="tab" onclick="switchTab('testcases')">用例管理</button>
+                <button class="tab" onclick="switchTab('headers')">标题层级</button>
+                <button class="tab" onclick="switchTab('baselines')">基线版本</button>
+                <button class="tab" onclick="switchTab('trace')">追踪矩阵</button>
+            </div>
+
+            <div class="toolbar">
+                <div class="project-select">
+                    <label>选择项目：</label>
+                    <select id="projectSelect" onchange="loadData()">
+                        <option value="">请选择项目...</option>
+                    </select>
+                    <button class="btn-primary btn-sm" onclick="showProjectModal()">+ 新建项目</button>
+                </div>
+                <div class="action-buttons" id="actionButtons">
+                    <button class="btn-primary" onclick="showRequirementModal()">+ 新建需求</button>
+                    <button class="btn-secondary" onclick="showImportModal()">📥 导入</button>
+                    <button class="btn-secondary" onclick="exportToExcel()">📊 导出 Excel</button>
+                    <button class="btn-secondary" onclick="exportToPDF()">📄 导出 PDF</button>
+                </div>
+            </div>
+
+            <!-- 批量操作栏 -->
+            <div id="batchActions" class="batch-actions" style="display: none;">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    <label for="selectAll">全选</label>
+                </div>
+                <button class="btn-secondary btn-sm" onclick="toggleSelectInverse()">反选</button>
+                <span class="selected-count" id="selectedCount">已选 0 项</span>
+                <div style="flex: 1;"></div>
+                <button class="btn-primary btn-sm" onclick="showCreateBaselineModal()">📌 创建基线</button>
+                <button class="btn-secondary btn-sm" onclick="showHistoryModal()">📜 查看历史</button>
+            </div>
+
+            <!-- 需求列表 -->
+            <div id="requirementsView">
+                <div class="table-container">
+                    <table id="requirementsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;"><input type="checkbox" id="selectAllReq" onchange="toggleSelectAllReq()"></th>
+                                <th style="width: 100px;">ID</th>
+                                <th>标题/需求</th>
+                                <th style="width: 200px;">验收标准</th>
+                                <th style="width: 180px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requirementsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 用例列表 -->
+            <div id="testcasesView" style="display: none;">
+                <div class="table-container">
+                    <table id="testcasesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;"><input type="checkbox" id="selectAllTc" onchange="toggleSelectAllTc()"></th>
+                                <th style="width: 100px;">ID</th>
+                                <th>操作步骤</th>
+                                <th>预期结果</th>
+                                <th style="width: 150px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="testcasesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 标题层级 -->
+            <div id="headersView" style="display: none;">
+                <div class="toolbar">
+                    <button class="btn-primary" onclick="showHeaderModal()">+ 新建标题</button>
+                </div>
+                <div class="table-container">
+                    <table id="headersTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">层级</th>
+                                <th>标题名称</th>
+                                <th style="width: 200px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="headersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 基线版本 -->
+            <div id="baselinesView" style="display: none;">
+                <div class="toolbar">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="btn-primary" onclick="loadBaselines()">🔄 刷新基线</button>
+                        <button class="btn-secondary" onclick="showCompareSelectModal()">🔍 对比基线</button>
+                    </div>
+                </div>
+                <div id="baselineList" class="baseline-list"></div>
+                <div id="baselineCompare" class="baseline-compare" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4>📌 基线对比：<span id="baselineCompareTitle"></span></h4>
+                        <button class="btn-outline" onclick="closeBaselineCompare()" style="padding: 5px 15px;">✕ 关闭对比</button>
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div class="stat-badge" style="background: #e8f5e9; color: #2e7d32; padding: 8px 15px; border-radius: 6px;">
+                            <strong>➕ 新增：</strong><span id="statAdded">0</span> 项
+                        </div>
+                        <div class="stat-badge" style="background: #ffebee; color: #c62828; padding: 8px 15px; border-radius: 6px;">
+                            <strong>➖ 删除：</strong><span id="statRemoved">0</span> 项
+                        </div>
+                        <div class="stat-badge" style="background: #fff3e0; color: #e65100; padding: 8px 15px; border-radius: 6px;">
+                            <strong>✏️ 修改：</strong><span id="statModified">0</span> 项
+                        </div>
+                        <div class="stat-badge" style="background: #e3f2fd; color: #1565c0; padding: 8px 15px; border-radius: 6px;">
+                            <strong>✓ 未变：</strong><span id="statUnchanged">0</span> 项
+                        </div>
+                    </div>
+                    <div id="compareResults"></div>
+                </div>
+            </div>
+
+            <!-- 追踪矩阵 -->
+            <div id="traceView" style="display: none;">
+                <div class="toolbar">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn-primary" onclick="loadTraceMatrix()">🔄 刷新矩阵</button>
+                        <button class="btn-secondary" onclick="exportMatrixCSV()">📊 导出 CSV</button>
+                        <button class="btn-secondary" onclick="exportMatrixJSON()">📄 导出 JSON</button>
+                        <button class="btn-secondary" onclick="showBatchModal()">🔗 批量关联</button>
+                        <button class="btn-secondary" onclick="showRecommendations()">💡 智能推荐</button>
+                    </div>
+                    <div id="traceStats" style="display: flex; gap: 20px; font-size: 14px; color: #666;">
+                    </div>
+                </div>
+                
+                <!-- 批量操作工具栏 -->
+                <div id="batchToolbar" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <span style="font-weight: 600;">📌 批量操作：</span>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="selectAllReqs" onchange="toggleSelectAllReqs()">
+                            全选需求
+                        </label>
+                        <span id="selectedCount" style="color: #666;">已选择 0 个需求</span>
+                        <button class="btn-primary" onclick="batchLinkTestcases()">🔗 批量关联用例</button>
+                        <button class="btn-outline" onclick="hideBatchToolbar()">取消</button>
+                    </div>
+                </div>
+                
+                <div class="matrix-container">
+                    <table class="matrix-table" id="matrixTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 40px;"><input type="checkbox" id="headerSelectAll" onchange="toggleSelectAll()" style="display: none;"></th>
+                                <th style="min-width: 120px;">需求 ID</th>
+                                <th>需求描述</th>
+                                <th style="min-width: 100px;">关联用例</th>
+                                <th>追踪状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matrixBody"></tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页控件 -->
+                <div id="tracePagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding: 15px;">
+                </div>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📁</div>
+                <h3>请先选择或创建一个项目</h3>
+                <p>点击"+ 新建项目"按钮开始</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目模态框 -->
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>新建项目</h2>
+                <button class="close-btn" onclick="closeModal('projectModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>项目名称 *</label>
+                    <input type="text" id="projectName" placeholder="请输入项目名称">
+                </div>
+                <div class="form-group">
+                    <label>项目描述</label>
+                    <textarea id="projectDesc" placeholder="请输入项目描述（可选）"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('projectModal')">取消</button>
+                <button class="btn-primary" onclick="createProject()">创建项目</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 需求模态框 -->
+    <div class="modal-overlay" id="requirementModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>新建需求</h2>
+                <button class="close-btn" onclick="closeModal('requirementModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>所属标题（可选）</label>
+                    <select id="reqHeader">
+                        <option value="">无（顶层需求）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ID 前缀</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="reqPrefix" placeholder="例如：REQ" value="REQ" style="flex: 1;">
+                    </div>
+                    <div class="prefix-btn-group" id="reqPrefixBtns">
+                        <button class="prefix-btn" onclick="setPrefix('REQ', 'requirement')">REQ</button>
+                        <button class="prefix-btn" onclick="setPrefix('FR', 'requirement')">FR</button>
+                        <button class="prefix-btn" onclick="setPrefix('NFR', 'requirement')">NFR</button>
+                        <button class="prefix-btn" onclick="setPrefix('UI', 'requirement')">UI</button>
+                        <button class="prefix-btn" onclick="setPrefix('', 'requirement')">无前缀</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>需求描述（富文本）</label>
+                    <div id="reqEditor" class="editor-container"></div>
+                    <input type="hidden" id="reqDescription">
+                </div>
+                <div class="form-group">
+                    <label>验收标准</label>
+                    <textarea id="reqAcceptance" placeholder="请输入验收标准（可选）" style="min-height: 80px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>附件上传</label>
+                    <input type="file" id="reqFileInput" multiple style="margin-bottom: 10px;">
+                    <div id="reqAttachments" class="attachment-list"></div>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="saveReqPrefix">
+                        将此前缀设为默认前缀
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('requirementModal')">取消</button>
+                <button class="btn-primary" onclick="createRequirement()">创建需求</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用例模态框 -->
+    <div class="modal-overlay" id="testcaseModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>新建用例</h2>
+                <button class="close-btn" onclick="closeModal('testcaseModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>所属标题（可选）</label>
+                    <select id="tcHeader">
+                        <option value="">无（顶层用例）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ID 前缀</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="tcPrefix" placeholder="例如：TC" value="TC" style="flex: 1;">
+                    </div>
+                    <div class="prefix-btn-group" id="tcPrefixBtns">
+                        <button class="prefix-btn" onclick="setPrefix('TC', 'testcase')">TC</button>
+                        <button class="prefix-btn" onclick="setPrefix('CASE', 'testcase')">CASE</button>
+                        <button class="prefix-btn" onclick="setPrefix('UT', 'testcase')">UT</button>
+                        <button class="prefix-btn" onclick="setPrefix('IT', 'testcase')">IT</button>
+                        <button class="prefix-btn" onclick="setPrefix('', 'testcase')">无前缀</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>操作步骤（富文本）</label>
+                    <div id="tcEditor" class="editor-container"></div>
+                    <input type="hidden" id="tcSteps">
+                </div>
+                <div class="form-group">
+                    <label>预期结果</label>
+                    <textarea id="tcResult" placeholder="请输入预期结果（可选）" style="min-height: 80px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>附件上传</label>
+                    <input type="file" id="tcFileInput" multiple style="margin-bottom: 10px;">
+                    <div id="tcAttachments" class="attachment-list"></div>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="saveTcPrefix">
+                        将此前缀设为默认前缀
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('testcaseModal')">取消</button>
+                <button class="btn-primary" onclick="createTestcase()">创建用例</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标题模态框 -->
+    <div class="modal-overlay" id="headerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>新建标题</h2>
+                <button class="close-btn" onclick="closeModal('headerModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>标题名称 *</label>
+                    <input type="text" id="headerName" placeholder="例如：第一章 引言">
+                </div>
+                <div class="form-group">
+                    <label>层级</label>
+                    <select id="headerLevel">
+                        <option value="1">一级标题</option>
+                        <option value="2">二级标题</option>
+                        <option value="3">三级标题</option>
+                        <option value="4">四级标题</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>父标题（可选）</label>
+                    <select id="headerParent">
+                        <option value="">无（作为顶级标题）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('headerModal')">取消</button>
+                <button class="btn-primary" onclick="createHeader()">创建标题</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建基线模态框 -->
+    <div class="modal-overlay" id="baselineModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>创建基线版本</h2>
+                <button class="close-btn" onclick="closeModal('baselineModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>基线名称 *</label>
+                    <input type="text" id="baselineName" placeholder="例如：V1.0 版本发布">
+                </div>
+                <div class="form-group">
+                    <label>版本号</label>
+                    <input type="text" id="baselineVersion" placeholder="例如：V1.0" value="V1">
+                </div>
+                <div class="form-group">
+                    <label>包含项目</label>
+                    <div id="baselineItems" style="max-height: 200px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px; padding: 10px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('baselineModal')">取消</button>
+                <button class="btn-primary" onclick="createBaseline()">创建基线</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史记录模态框 -->
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>修改历史</h2>
+                <button class="close-btn" onclick="closeModal('historyModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="historyList" class="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入模态框 -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>批量导入需求/用例</h2>
+                <button class="close-btn" onclick="closeModal('importModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>导入类型</label>
+                    <select id="importType">
+                        <option value="requirement">需求</option>
+                        <option value="testcase">用例</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>选择文件（支持 Excel: .xlsx, .xls）</label>
+                    <input type="file" id="importFile" accept=".xlsx,.xls" style="margin-top: 8px;">
+                </div>
+                <div class="form-group">
+                    <label>所属标题（可选）</label>
+                    <select id="importHeader">
+                        <option value="">无（顶层）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ID 前缀</label>
+                    <input type="text" id="importPrefix" placeholder="例如：REQ" value="REQ">
+                </div>
+                <div class="form-group">
+                    <label>说明</label>
+                    <div style="padding: 12px; background: #f0f4ff; border-radius: 8px; font-size: 13px; color: #666;">
+                        <p><strong>Excel 格式要求：</strong></p>
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li>第一行为表头</li>
+                            <li>需求导入：至少包含"描述"或"需求描述"列</li>
+                            <li>用例导入：至少包含"操作步骤"或"步骤"列</li>
+                            <li>可选列：验收标准、预期结果、前缀等</li>
+                        </ul>
+                    </div>
+                </div>
+                <div id="importPreview" style="margin-top: 15px; display: none;">
+                    <label>预览（前 5 条）：</label>
+                    <div id="importPreviewContent" style="max-height: 200px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px; padding: 10px; margin-top: 8px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('importModal')">取消</button>
+                <button class="btn-primary" onclick="confirmImport()">确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Quill 编辑器脚本 -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        const API_BASE = 'http://8.215.93.217:8001/api';
+        let currentUser = null;
+        let currentTab = 'requirements';
+        let currentProjectId = '';
+        let requirementsData = [];
+        let testcasesData = [];
+        let headersData = [];
+        let selectedReqs = new Set();
+        let selectedTcs = new Set();
+        let defaultPrefixes = { requirement: 'REQ', testcase: 'TC' };
+        
+        // 富文本编辑器实例
+        let reqEditor = null;
+        let tcEditor = null;
+        let reqAttachments = [];
+        let tcAttachments = [];
+
+        // 初始化编辑器
+        function initEditors() {
+            const editorOptions = {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'font': [] }],
+                        [{ 'align': [] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        ['link', 'image', 'video'],
+                        ['table'],
+                        ['clean']
+                    ]
+                }
+            };
+
+            reqEditor = new Quill('#reqEditor', editorOptions);
+            tcEditor = new Quill('#tcEditor', editorOptions);
+
+            // 文件上传处理
+            setupFileUpload('reqFileInput', reqAttachments, 'reqAttachments');
+            setupFileUpload('tcFileInput', tcAttachments, 'tcAttachments');
+        }
+
+        // 文件上传处理
+        async function setupFileUpload(inputId, attachmentsArray, containerId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            
+            input.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                const formData = new FormData();
+                files.forEach(file => formData.append('file', file));
+
+                try {
+                    const response = await fetch(`${API_BASE}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        attachmentsArray.push(...data.data);
+                        renderAttachments(attachmentsArray, containerId);
+                        
+                        // 将图片/视频插入编辑器
+                        data.data.forEach(file => {
+                            if (file.mimeType.startsWith('image/')) {
+                                const range = (inputId === 'reqFileInput' ? reqEditor : tcEditor).getSelection();
+                                (inputId === 'reqFileInput' ? reqEditor : tcEditor).insertEmbed(range.index, 'image', file.url);
+                            }
+                        });
+                        
+                        showToast(`上传成功 ${data.data.length} 个文件`, 'success');
+                    }
+                } catch (error) {
+                    console.error('上传失败:', error);
+                    showToast('上传失败', 'error');
+                }
+                
+                input.value = '';
+            });
+        }
+
+        // 渲染附件列表
+        function renderAttachments(attachments, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = attachments.map((file, index) => `
+                <div class="attachment-item">
+                    <span class="attachment-icon">${getFileIcon(file.mimeType)}</span>
+                    <span class="attachment-name">${file.originalName}</span>
+                    <span class="attachment-size">${formatFileSize(file.size)}</span>
+                    <button class="btn-danger btn-sm" onclick="removeAttachment('${containerId}', ${index})">删除</button>
+                    <a href="${file.url}" target="_blank" class="btn-secondary btn-sm">查看</a>
+                </div>
+            `).join('');
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.startsWith('image/')) return '🖼️';
+            if (mimeType.startsWith('video/')) return '🎥';
+            if (mimeType.includes('pdf')) return '📄';
+            if (mimeType.includes('word')) return '📝';
+            if (mimeType.includes('excel')) return '📊';
+            return '📎';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function removeAttachment(containerId, index) {
+            if (containerId === 'reqAttachments') {
+                reqAttachments.splice(index, 1);
+                renderAttachments(reqAttachments, containerId);
+            } else {
+                tcAttachments.splice(index, 1);
+                renderAttachments(tcAttachments, containerId);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const userStr = sessionStorage.getItem('currentUser');
+            if (!userStr) {
+                window.location.href = '/login.html';
+                return;
+            }
+            currentUser = JSON.parse(userStr);
+            document.getElementById('currentUsername').textContent = currentUser.username;
+            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            
+            // 初始化富文本编辑器
+            initEditors();
+            
+            await loadProjects();
+            await loadDefaultPrefixes();
+        });
+
+        async function loadDefaultPrefixes() {
+            try {
+                const response = await fetch(`${API_BASE}/prefixes`);
+                const data = await response.json();
+                if (data.success) {
+                    defaultPrefixes = data.data;
+                    document.getElementById('reqPrefix').value = defaultPrefixes.requirement || 'REQ';
+                    document.getElementById('tcPrefix').value = defaultPrefixes.testcase || 'TC';
+                }
+            } catch (error) {
+                console.error('加载默认前缀失败:', error);
+            }
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const data = await response.json();
+                const select = document.getElementById('projectSelect');
+                select.innerHTML = '<option value="">请选择项目...</option>';
+                if (data.success && data.data.length > 0) {
+                    data.data.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载项目失败:', error);
+            }
+        }
+
+        async function loadData() {
+            const projectId = document.getElementById('projectSelect').value;
+            currentProjectId = projectId;
+
+            if (!projectId) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('requirementsView').style.display = 'none';
+                document.getElementById('testcasesView').style.display = 'none';
+                document.getElementById('headersView').style.display = 'none';
+                document.getElementById('baselinesView').style.display = 'none';
+                document.getElementById('traceView').style.display = 'none';
+                document.getElementById('actionButtons').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('actionButtons').style.display = 'flex';
+            selectedReqs.clear();
+            selectedTcs.clear();
+            updateBatchActions();
+
+            if (currentTab === 'requirements') {
+                document.getElementById('requirementsView').style.display = 'block';
+                document.getElementById('testcasesView').style.display = 'none';
+                document.getElementById('headersView').style.display = 'none';
+                document.getElementById('baselinesView').style.display = 'none';
+                document.getElementById('traceView').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'flex';
+                await Promise.all([loadRequirements(), loadHeadersForDropdown()]);
+            } else if (currentTab === 'testcases') {
+                document.getElementById('requirementsView').style.display = 'none';
+                document.getElementById('testcasesView').style.display = 'block';
+                document.getElementById('headersView').style.display = 'none';
+                document.getElementById('baselinesView').style.display = 'none';
+                document.getElementById('traceView').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'flex';
+                await Promise.all([loadTestcases(), loadHeadersForDropdown()]);
+            } else if (currentTab === 'headers') {
+                document.getElementById('requirementsView').style.display = 'none';
+                document.getElementById('testcasesView').style.display = 'none';
+                document.getElementById('headersView').style.display = 'block';
+                document.getElementById('baselinesView').style.display = 'none';
+                document.getElementById('traceView').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'none';
+                await loadHeaders();
+            } else if (currentTab === 'baselines') {
+                document.getElementById('requirementsView').style.display = 'none';
+                document.getElementById('testcasesView').style.display = 'none';
+                document.getElementById('headersView').style.display = 'none';
+                document.getElementById('baselinesView').style.display = 'block';
+                document.getElementById('traceView').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'none';
+                await loadBaselines();
+            } else if (currentTab === 'trace') {
+                document.getElementById('requirementsView').style.display = 'none';
+                document.getElementById('testcasesView').style.display = 'none';
+                document.getElementById('headersView').style.display = 'none';
+                document.getElementById('baselinesView').style.display = 'none';
+                document.getElementById('traceView').style.display = 'block';
+                document.getElementById('batchActions').style.display = 'none';
+                await loadTraceMatrix();
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            loadData();
+        }
+
+        function updateBatchActions() {
+            const count = currentTab === 'requirements' ? selectedReqs.size : selectedTcs.size;
+            document.getElementById('selectedCount').textContent = `已选 ${count} 项`;
+        }
+
+        async function loadHeadersForDropdown() {
+            try {
+                const response = await fetch(`${API_BASE}/headers?projectId=${currentProjectId}`);
+                const data = await response.json();
+                headersData = data.success ? data.data : [];
+                
+                const reqSelect = document.getElementById('reqHeader');
+                const tcSelect = document.getElementById('tcHeader');
+                const parentSelect = document.getElementById('headerParent');
+                
+                const options = '<option value="">无（顶层）</option>' + 
+                    headersData.map(h => `<option value="${h.id}">${'  '.repeat(h.level - 1)}📑 ${h.name}</option>`).join('');
+                
+                reqSelect.innerHTML = options;
+                tcSelect.innerHTML = options;
+                parentSelect.innerHTML = options;
+            } catch (error) {
+                console.error('加载标题失败:', error);
+            }
+        }
+
+        async function loadRequirements() {
+            if (!currentProjectId) return;
+            try {
+                const response = await fetch(`${API_BASE}/requirements?projectId=${currentProjectId}`);
+                const data = await response.json();
+                const tbody = document.getElementById('requirementsBody');
+                tbody.innerHTML = '';
+                requirementsData = data.success ? data.data : [];
+
+                if (requirementsData.length > 0) {
+                    requirementsData.forEach(req => {
+                        const header = headersData.find(h => h.id === req.headerId);
+                        const tr = document.createElement('tr');
+                        tr.className = header ? 'header-row' : '';
+                        tr.innerHTML = `
+                            <td><input type="checkbox" class="item-checkbox" data-id="${req.id}" onchange="updateSelectedReqs()"></td>
+                            <td><strong>${req.reqId}</strong></td>
+                            <td class="${header ? 'header-level-' + header.level : ''}">
+                                ${header ? '<span class="header-indicator">📑</span> ' : ''}${req.description || ''}
+                            </td>
+                            <td>${req.acceptanceCriteria || '-'}</td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn-primary btn-sm btn-icon" onclick="linkTrace('${req.id}')" title="关联用例">🔗</button>
+                                    <button class="btn-secondary btn-sm" onclick="viewHistory('requirement', '${req.id}')">📜</button>
+                                    <button class="btn-danger btn-sm" onclick="deleteRequirement('${req.id}')">删除</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>暂无需求，点击"+ 新建需求"添加</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('加载需求失败:', error);
+                showToast('加载需求失败', 'error');
+            }
+        }
+
+        async function loadTestcases() {
+            if (!currentProjectId) return;
+            try {
+                const response = await fetch(`${API_BASE}/testcases?projectId=${currentProjectId}`);
+                const data = await response.json();
+                const tbody = document.getElementById('testcasesBody');
+                tbody.innerHTML = '';
+                testcasesData = data.success ? data.data : [];
+
+                if (testcasesData.length > 0) {
+                    testcasesData.forEach(tc => {
+                        const header = headersData.find(h => h.id === tc.headerId);
+                        const tr = document.createElement('tr');
+                        tr.className = header ? 'header-row' : '';
+                        tr.innerHTML = `
+                            <td><input type="checkbox" class="item-checkbox" data-id="${tc.id}" onchange="updateSelectedTcs()"></td>
+                            <td><strong>${tc.tcId}</strong></td>
+                            <td class="${header ? 'header-level-' + header.level : ''}">
+                                ${header ? '<span class="header-indicator">📑</span> ' : ''}${tc.steps || ''}
+                            </td>
+                            <td>${tc.expectedResult || '-'}</td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn-secondary btn-sm" onclick="viewHistory('testcase', '${tc.id}')">📜</button>
+                                    <button class="btn-danger btn-sm" onclick="deleteTestcase('${tc.id}')">删除</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>暂无用例，点击"+ 新建用例"添加</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('加载用例失败:', error);
+                showToast('加载用例失败', 'error');
+            }
+        }
+
+        async function loadHeaders() {
+            if (!currentProjectId) return;
+            try {
+                const response = await fetch(`${API_BASE}/headers?projectId=${currentProjectId}`);
+                const data = await response.json();
+                const tbody = document.getElementById('headersBody');
+                tbody.innerHTML = '';
+                headersData = data.success ? data.data : [];
+
+                if (headersData.length > 0) {
+                    headersData.sort((a, b) => a.level - b.level).forEach(h => {
+                        const parent = headersData.find(p => p.id === h.parentId);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><span class="badge" style="padding: 4px 8px; background: #667eea; color: white; border-radius: 4px; font-size: 12px;">L${h.level}</span></td>
+                            <td style="padding-left: ${20 * (h.level - 1)}px;">
+                                ${parent ? '<span style="color: #999;">└─ </span>' : ''}${h.name}
+                            </td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn-secondary btn-sm" onclick="editHeader('${h.id}')">编辑</button>
+                                    <button class="btn-danger btn-sm" onclick="deleteHeader('${h.id}')">删除</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty-state"><p>暂无标题，点击"+ 新建标题"添加</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('加载标题失败:', error);
+                showToast('加载标题失败', 'error');
+            }
+        }
+
+        function updateSelectedReqs() {
+            selectedReqs.clear();
+            document.querySelectorAll('#requirementsBody .item-checkbox:checked').forEach(cb => {
+                selectedReqs.add(cb.dataset.id);
+            });
+            updateBatchActions();
+        }
+
+        function updateSelectedTcs() {
+            selectedTcs.clear();
+            document.querySelectorAll('#testcasesBody .item-checkbox:checked').forEach(cb => {
+                selectedTcs.add(cb.dataset.id);
+            });
+            updateBatchActions();
+        }
+
+        function toggleSelectAllReq() {
+            const checked = document.getElementById('selectAllReq').checked;
+            document.querySelectorAll('#requirementsBody .item-checkbox').forEach(cb => cb.checked = checked);
+            updateSelectedReqs();
+        }
+
+        function toggleSelectAllTc() {
+            const checked = document.getElementById('selectAllTc').checked;
+            document.querySelectorAll('#testcasesBody .item-checkbox').forEach(cb => cb.checked = checked);
+            updateSelectedTcs();
+        }
+
+        function toggleSelectInverse() {
+            if (currentTab === 'requirements') {
+                document.querySelectorAll('#requirementsBody .item-checkbox').forEach(cb => cb.checked = !cb.checked);
+                updateSelectedReqs();
+            } else {
+                document.querySelectorAll('#testcasesBody .item-checkbox').forEach(cb => cb.checked = !cb.checked);
+                updateSelectedTcs();
+            }
+        }
+
+        function setPrefix(prefix, type) {
+            if (type === 'requirement') {
+                document.getElementById('reqPrefix').value = prefix;
+                document.getElementById('reqPrefixBtns').querySelectorAll('.prefix-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.textContent === (prefix || '无前缀'));
+                });
+            } else {
+                document.getElementById('tcPrefix').value = prefix;
+                document.getElementById('tcPrefixBtns').querySelectorAll('.prefix-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.textContent === (prefix || '无前缀'));
+                });
+            }
+        }
+
+        async function loadBaselines() {
+            if (!currentProjectId) return;
+            try {
+                const response = await fetch(`${API_BASE}/baselines?projectId=${currentProjectId}`);
+                const data = await response.json();
+                const list = document.getElementById('baselineList');
+                
+                if (data.success && data.data.length > 0) {
+                    list.innerHTML = data.data.map(b => `
+                        <div class="baseline-card" onclick="showBaselineCompare('${b.id}')">
+                            <span class="baseline-version">${b.version}</span>
+                            <div class="baseline-name">${b.name}</div>
+                            <div class="baseline-info">
+                                ${b.type === 'requirement' ? '📋 需求' : '🧪 用例'} 
+                                · ${b.items.length} 项 
+                                · ${new Date(b.createdAt).toLocaleDateString('zh-CN')}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state"><p>暂无基线版本</p></div>';
+                }
+            } catch (error) {
+                console.error('加载基线失败:', error);
+                showToast('加载基线失败', 'error');
+            }
+        }
+
+        async function showBaselineCompare(baselineId) {
+            try {
+                const response = await fetch(`${API_BASE}/baselines/${baselineId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const baseline = data.data;
+                    document.getElementById('baselineCompareTitle').textContent = `${baseline.version} - ${baseline.name}`;
+                    const tbody = document.getElementById('baselineCompareBody');
+                    tbody.innerHTML = baseline.items.map(item => `
+                        <tr>
+                            <td><strong>${item.reqId}</strong></td>
+                            <td>${item.description}</td>
+                        </tr>
+                    `).join('');
+                    document.getElementById('baselineCompare').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载基线详情失败:', error);
+            }
+        }
+
+        let traceMatrixData = null;
+
+        async function loadTraceMatrix() {
+            if (!currentProjectId) return;
+            try {
+                const response = await fetch(`${API_BASE}/trace-matrix?projectId=${currentProjectId}`);
+                const data = await response.json();
+                if (!data.success) { showToast('加载矩阵失败', 'error'); return; }
+
+                traceMatrixData = data.data;
+                
+                // 显示统计信息
+                const stats = traceMatrixData.stats;
+                document.getElementById('traceStats').innerHTML = `
+                    <span>📋 需求：<strong>${stats.totalRequirements}</strong></span>
+                    <span>🧪 用例：<strong>${stats.totalTestcases}</strong></span>
+                    <span>🔗 追踪关系：<strong>${stats.totalTraces}</strong></span>
+                    <span>✅ 覆盖率：<strong>${stats.totalRequirements > 0 ? Math.round(stats.coveredRequirements / stats.totalRequirements * 100) : 0}%</strong></span>
+                `;
+                
+                const tbody = document.getElementById('matrixBody');
+                
+                if (traceMatrixData.requirements.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><p>暂无需求，请先添加需求</p></td></tr>';
+                    return;
+                }
+
+                let html = '';
+                traceMatrixData.requirements.forEach(req => {
+                    // 查找该需求关联的所有用例
+                    const relatedTcs = [];
+                    Object.keys(traceMatrixData.traceMap).forEach(key => {
+                        const [reqId, tcId] = key.split(':');
+                        if (reqId === req.id) {
+                            const tc = traceMatrixData.testcases.find(t => t.id === tcId);
+                            if (tc) {
+                                relatedTcs.push({ tc, trace: traceMatrixData.traceMap[key] });
+                            }
+                        }
+                    });
+                    
+                    const hasTraces = relatedTcs.length > 0;
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${req.reqId}</strong></td>
+                            <td>${req.description || '-'}</td>
+                            <td>
+                                ${hasTraces 
+                                    ? relatedTcs.map(rt => `<span style="display:inline-block;padding:2px 8px;background:#e8f5e9;border-radius:4px;margin:2px;font-size:13px;">${rt.tc.tcId}</span>`).join('')
+                                    : '<span style="color:#999;">未关联</span>'
+                                }
+                            </td>
+                            <td>
+                                ${hasTraces 
+                                    ? '<span style="color:#27ae60;">✅ 已追踪</span>' 
+                                    : '<span style="color:#e74c3c;">⚠️ 未追踪</span>'
+                                }
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+            } catch (error) {
+                console.error('加载矩阵失败:', error);
+                showToast('加载矩阵失败', 'error');
+            }
+        }
+
+        async function toggleTrace(checkbox) {
+            const requirementId = checkbox.dataset.reqId;
+            const testcaseId = checkbox.dataset.tcId;
+            const checked = checkbox.checked;
+
+            try {
+                if (checked) {
+                    const response = await fetch(`${API_BASE}/traces`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ requirementId, testcaseId })
+                    });
+                    const data = await response.json();
+                    if (!data.success) { checkbox.checked = false; showToast(data.message, 'error'); }
+                } else {
+                    const traceResponse = await fetch(`${API_BASE}/traces?projectId=${currentProjectId}`);
+                    const traceData = await traceResponse.json();
+                    const trace = traceData.data.find(t => 
+                        t.requirementId === requirementId && t.testcaseId === testcaseId
+                    );
+                    if (trace) {
+                        await fetch(`${API_BASE}/traces/${trace.id}`, { method: 'DELETE' });
+                    }
+                }
+            } catch (error) {
+                checkbox.checked = !checked;
+                showToast('操作失败', 'error');
+            }
+        }
+
+        function showProjectModal() { document.getElementById('projectModal').classList.add('active'); }
+        function showRequirementModal() { 
+            document.getElementById('reqPrefix').value = defaultPrefixes.requirement || 'REQ';
+            reqAttachments = [];
+            renderAttachments(reqAttachments, 'reqAttachments');
+            if (reqEditor) reqEditor.root.innerHTML = '';
+            document.getElementById('requirementModal').classList.add('active');
+            setTimeout(() => { if (reqEditor) reqEditor.focus(); }, 100);
+        }
+        function showTestcaseModal() { 
+            document.getElementById('tcPrefix').value = defaultPrefixes.testcase || 'TC';
+            tcAttachments = [];
+            renderAttachments(tcAttachments, 'tcAttachments');
+            if (tcEditor) tcEditor.root.innerHTML = '';
+            document.getElementById('testcaseModal').classList.add('active');
+            setTimeout(() => { if (tcEditor) tcEditor.focus(); }, 100);
+        }
+        function showHeaderModal() { document.getElementById('headerModal').classList.add('active'); }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            document.querySelectorAll(`#${modalId} input, #${modalId} textarea`).forEach(i => i.value = '');
+        }
+
+        async function createProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const description = document.getElementById('projectDesc').value.trim();
+            if (!name) { showToast('请输入项目名称', 'error'); return; }
+            try {
+                const response = await fetch(`${API_BASE}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('项目创建成功', 'success');
+                    closeModal('projectModal');
+                    await loadProjects();
+                    document.getElementById('projectSelect').value = data.data.id;
+                    loadData();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('创建项目失败', 'error'); }
+        }
+
+        async function createRequirement() {
+            const prefix = document.getElementById('reqPrefix').value.trim();
+            const richContent = reqEditor ? reqEditor.root.innerHTML : '';
+            const description = reqEditor ? reqEditor.getText().trim().substring(0, 200) : '';
+            const acceptanceCriteria = document.getElementById('reqAcceptance').value.trim();
+            const headerId = document.getElementById('reqHeader').value || null;
+            const savePrefix = document.getElementById('saveReqPrefix').checked;
+            
+            if (!richContent || richContent === '<p><br></p>') { showToast('请输入需求描述', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/requirements`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        projectId: currentProjectId, 
+                        prefix: prefix || undefined, 
+                        description,
+                        richContent,
+                        acceptanceCriteria,
+                        headerId,
+                        attachments: reqAttachments,
+                        savePrefix
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('需求创建成功', 'success');
+                    closeModal('requirementModal');
+                    reqAttachments = [];
+                    if (reqEditor) reqEditor.root.innerHTML = '';
+                    if (savePrefix) await loadDefaultPrefixes();
+                    await loadRequirements();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('创建需求失败', 'error'); }
+        }
+
+        async function createTestcase() {
+            const prefix = document.getElementById('tcPrefix').value.trim();
+            const richContent = tcEditor ? tcEditor.root.innerHTML : '';
+            const steps = tcEditor ? tcEditor.getText().trim().substring(0, 200) : '';
+            const expectedResult = document.getElementById('tcResult').value.trim();
+            const headerId = document.getElementById('tcHeader').value || null;
+            const savePrefix = document.getElementById('saveTcPrefix').checked;
+            
+            if (!richContent || richContent === '<p><br></p>') { showToast('请输入操作步骤', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/testcases`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        projectId: currentProjectId, 
+                        prefix: prefix || undefined, 
+                        steps,
+                        richContent,
+                        expectedResult,
+                        headerId,
+                        attachments: tcAttachments,
+                        savePrefix
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('用例创建成功', 'success');
+                    closeModal('testcaseModal');
+                    tcAttachments = [];
+                    if (tcEditor) tcEditor.root.innerHTML = '';
+                    if (savePrefix) await loadDefaultPrefixes();
+                    await loadTestcases();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('创建用例失败', 'error'); }
+        }
+
+        async function createHeader() {
+            const name = document.getElementById('headerName').value.trim();
+            const level = parseInt(document.getElementById('headerLevel').value);
+            const parentId = document.getElementById('headerParent').value || null;
+            
+            if (!name) { showToast('请输入标题名称', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/headers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: currentProjectId, name, level, parentId })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('标题创建成功', 'success');
+                    closeModal('headerModal');
+                    await loadHeaders();
+                    await loadHeadersForDropdown();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('创建标题失败', 'error'); }
+        }
+
+        async function editHeader(headerId) {
+            const header = headersData.find(h => h.id === headerId);
+            if (!header) return;
+            
+            document.getElementById('headerName').value = header.name;
+            document.getElementById('headerLevel').value = header.level;
+            document.getElementById('headerParent').value = header.parentId || '';
+            document.getElementById('headerModal').classList.add('active');
+        }
+
+        async function deleteHeader(headerId) {
+            if (!confirm('确定要删除这个标题吗？')) return;
+            try {
+                const response = await fetch(`${API_BASE}/headers/${headerId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('标题已删除', 'success');
+                    await loadHeaders();
+                    await loadHeadersForDropdown();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('删除失败', 'error'); }
+        }
+
+        async function updateRequirement(reqId, description) {
+            try {
+                await fetch(`${API_BASE}/requirements/${reqId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description })
+                });
+            } catch (error) { console.error('更新需求失败:', error); }
+        }
+
+        async function updateTestcase(tcId, field, value) {
+            try {
+                const body = {};
+                if (field === 'steps') body.steps = value;
+                if (field === 'result') body.expectedResult = value;
+                await fetch(`${API_BASE}/testcases/${tcId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+            } catch (error) { console.error('更新用例失败:', error); }
+        }
+
+        async function deleteRequirement(reqId) {
+            if (!confirm('确定要删除这个需求吗？')) return;
+            try {
+                const response = await fetch(`${API_BASE}/requirements/${reqId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) { showToast('需求已删除', 'success'); await loadRequirements(); }
+                else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('删除失败', 'error'); }
+        }
+
+        async function deleteTestcase(tcId) {
+            if (!confirm('确定要删除这个用例吗？')) return;
+            try {
+                const response = await fetch(`${API_BASE}/testcases/${tcId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) { showToast('用例已删除', 'success'); await loadTestcases(); }
+                else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('删除失败', 'error'); }
+        }
+
+        async function linkTrace(reqId) {
+            // 获取该需求的信息
+            const req = requirementsData.find(r => r.id === reqId);
+            if (!req) return;
+            
+            // 显示快速关联对话框
+            const tcSelect = document.createElement('div');
+            tcSelect.className = 'modal-overlay';
+            tcSelect.id = 'quickLinkModal';
+            tcSelect.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2>关联用例 - ${req.reqId}</h2>
+                        <button class="close-btn" onclick="closeModal('quickLinkModal')">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>选择要关联的用例（可多选）</label>
+                            <div id="quickLinkTcList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px; padding: 10px;">
+                                ${testcasesData.map(tc => {
+                                    const isLinked = traceMatrixData?.traceMap?.[`${reqId}:${tc.id}`];
+                                    return `
+                                        <label style="display: flex; align-items: center; gap: 8px; padding: 8px; ${isLinked ? 'background:#e8f5e9;' : ''}">
+                                            <input type="checkbox" value="${tc.id}" ${isLinked ? 'checked' : ''}>
+                                            <span>${tc.tcId}: ${tc.steps?.substring(0, 50) || ''}${tc.steps?.length > 50 ? '...' : ''}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-outline" onclick="closeModal('quickLinkModal')">取消</button>
+                        <button class="btn-primary" onclick="saveQuickLink('${reqId}')">保存关联</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(tcSelect);
+            tcSelect.classList.add('active');
+            
+            // 加载用例数据（如果还没有）
+            if (testcasesData.length === 0) {
+                await loadTestcases();
+            }
+        }
+
+        async function saveQuickLink(reqId) {
+            const modal = document.getElementById('quickLinkModal');
+            const checkboxes = modal.querySelectorAll('#quickLinkTcList input[type="checkbox"]:checked');
+            const selectedTcIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            try {
+                // 获取当前已有的追踪关系
+                const traceResponse = await fetch(`${API_BASE}/traces?projectId=${currentProjectId}`);
+                const traceData = await traceResponse.json();
+                const existingTraces = traceData.data || [];
+                
+                // 找出需要新增的追踪关系
+                for (const tcId of selectedTcIds) {
+                    const exists = existingTraces.some(t => t.requirementId === reqId && t.testcaseId === tcId);
+                    if (!exists) {
+                        await fetch(`${API_BASE}/traces`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ requirementId: reqId, testcaseId: tcId })
+                        });
+                    }
+                }
+                
+                // 找出需要删除的追踪关系
+                for (const trace of existingTraces.filter(t => t.requirementId === reqId)) {
+                    if (!selectedTcIds.includes(trace.testcaseId)) {
+                        await fetch(`${API_BASE}/traces/${trace.id}`, { method: 'DELETE' });
+                    }
+                }
+                
+                showToast('关联已保存', 'success');
+                closeModal('quickLinkModal');
+                modal.remove();
+                await loadTraceMatrix();
+            } catch (error) {
+                console.error('保存关联失败:', error);
+                showToast('保存失败', 'error');
+            }
+        }
+
+        function showCreateBaselineModal() {
+            const items = currentTab === 'requirements' 
+                ? requirementsData.filter(r => selectedReqs.has(r.id))
+                : testcasesData.filter(t => selectedTcs.has(t.id));
+            
+            if (items.length === 0) { showToast('请先选择项目', 'error'); return; }
+            
+            const type = currentTab === 'requirements' ? 'requirement' : 'testcase';
+            document.getElementById('baselineItems').innerHTML = items.map(item => `
+                <div style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
+                    <strong>${item.reqId || item.tcId}</strong>: ${item.description || item.steps}
+                </div>
+            `).join('');
+            
+            document.getElementById('baselineModal').dataset.type = type;
+            document.getElementById('baselineModal').classList.add('active');
+        }
+
+        async function createBaseline() {
+            const name = document.getElementById('baselineName').value.trim();
+            const version = document.getElementById('baselineVersion').value.trim() || 'V1';
+            const type = document.getElementById('baselineModal').dataset.type;
+            const itemIds = type === 'requirement' ? Array.from(selectedReqs) : Array.from(selectedTcs);
+            
+            if (!name) { showToast('请输入基线名称', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/baselines`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: currentProjectId, type, name, version, itemIds })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('基线创建成功', 'success');
+                    closeModal('baselineModal');
+                    selectedReqs.clear();
+                    selectedTcs.clear();
+                    updateBatchActions();
+                } else { showToast(data.message, 'error'); }
+            } catch (error) { showToast('创建基线失败', 'error'); }
+        }
+
+        function showHistoryModal() {
+            document.getElementById('historyModal').classList.add('active');
+            loadHistory();
+        }
+
+        async function loadHistory() {
+            const type = currentTab === 'requirements' ? 'requirement' : 'testcase';
+            try {
+                const response = await fetch(`${API_BASE}/history?type=${type}&limit=50`);
+                const data = await response.json();
+                const list = document.getElementById('historyList');
+                
+                if (data.success && data.data.length > 0) {
+                    list.innerHTML = data.data.map(h => `
+                        <div class="history-item">
+                            <div class="history-time">${new Date(h.timestamp).toLocaleString('zh-CN')}</div>
+                            <div class="history-action ${h.action}">
+                                ${h.action === 'create' ? '➕ 创建' : 
+                                  h.action === 'update' ? '✏️ 更新' : 
+                                  h.action === 'delete' ? '🗑️ 删除' : '📌 基线'}
+                            </div>
+                            <div class="history-changes">${JSON.stringify(h.changes, null, 2)}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state"><p>暂无历史记录</p></div>';
+                }
+            } catch (error) { console.error('加载历史失败:', error); }
+        }
+
+        async function viewHistory(type, itemId) {
+            document.getElementById('historyModal').classList.add('active');
+            try {
+                const response = await fetch(`${API_BASE}/history?type=${type}&itemId=${itemId}&limit=50`);
+                const data = await response.json();
+                const list = document.getElementById('historyList');
+                
+                if (data.success && data.data.length > 0) {
+                    list.innerHTML = data.data.map(h => `
+                        <div class="history-item">
+                            <div class="history-time">${new Date(h.timestamp).toLocaleString('zh-CN')}</div>
+                            <div class="history-action ${h.action}">
+                                ${h.action === 'create' ? '➕ 创建' : 
+                                  h.action === 'update' ? '✏️ 更新' : 
+                                  h.action === 'delete' ? '🗑️ 删除' : '📌 基线'}
+                            </div>
+                            <div class="history-changes">${JSON.stringify(h.changes, null, 2)}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state"><p>暂无历史记录</p></div>';
+                }
+            } catch (error) { console.error('加载历史失败:', error); }
+        }
+
+        function exportToExcel() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            let csv = '';
+            if (currentTab === 'requirements') {
+                csv = '需求 ID，需求描述，验收标准\n';
+                requirementsData.forEach(req => {
+                    csv += `"${req.reqId}","${(req.description || '').replace(/"/g, '""')}","${(req.acceptanceCriteria || '').replace(/"/g, '""')}"\n`;
+                });
+            } else {
+                csv = '用例 ID，操作步骤，预期结果\n';
+                testcasesData.forEach(tc => {
+                    csv += `"${tc.tcId}","${(tc.steps || '').replace(/"/g, '""')}","${(tc.expectedResult || '').replace(/"/g, '""')}"\n`;
+                });
+            }
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${currentTab}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showToast('导出成功', 'success');
+        }
+
+        async function exportMatrixCSV() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/trace-matrix/export?projectId=${currentProjectId}&format=csv`);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `trace_matrix_${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+                showToast('导出成功', 'success');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败', 'error');
+            }
+        }
+
+        async function exportMatrixJSON() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/trace-matrix/export?projectId=${currentProjectId}&format=json`);
+                const data = await response.json();
+                
+                const jsonStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `trace_matrix_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                showToast('导出成功', 'success');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败', 'error');
+            }
+        }
+
+        // ===== 导入导出功能 =====
+        
+        // 显示导入模态框
+        function showImportModal() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            // 设置默认前缀
+            const importType = document.getElementById('importType').value;
+            document.getElementById('importPrefix').value = importType === 'requirement' 
+                ? (defaultPrefixes.requirement || 'REQ') 
+                : (defaultPrefixes.testcase || 'TC');
+            
+            // 加载标题下拉框
+            loadHeadersForImportDropdown();
+            
+            // 重置预览
+            document.getElementById('importPreview').style.display = 'none';
+            document.getElementById('importFile').value = '';
+            
+            document.getElementById('importModal').classList.add('active');
+        }
+        
+        // 加载导入标题下拉框
+        async function loadHeadersForImportDropdown() {
+            try {
+                const response = await fetch(`${API_BASE}/headers?projectId=${currentProjectId}`);
+                const data = await response.json();
+                const headers = data.success ? data.data : [];
+                
+                const select = document.getElementById('importHeader');
+                select.innerHTML = '<option value="">无（顶层）</option>' + 
+                    headers.map(h => `<option value="${h.id}">${'  '.repeat(h.level - 1)}📑 ${h.name}</option>`).join('');
+            } catch (error) {
+                console.error('加载标题失败:', error);
+            }
+        }
+        
+        // 监听导入类型变化
+        document.getElementById('importType')?.addEventListener('change', function() {
+            const importType = this.value;
+            document.getElementById('importPrefix').value = importType === 'requirement' 
+                ? (defaultPrefixes.requirement || 'REQ') 
+                : (defaultPrefixes.testcase || 'TC');
+        });
+        
+        // 监听文件选择，显示预览
+        document.getElementById('importFile')?.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.mjs');
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                
+                if (jsonData.length === 0) {
+                    showToast('Excel 文件为空', 'error');
+                    return;
+                }
+                
+                // 显示预览（前 5 条）
+                const previewDiv = document.getElementById('importPreview');
+                const previewContent = document.getElementById('importPreviewContent');
+                previewDiv.style.display = 'block';
+                
+                previewContent.innerHTML = jsonData.slice(0, 5).map((row, idx) => `
+                    <div style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
+                        <strong>第${idx + 1}条:</strong> ${JSON.stringify(row).substring(0, 100)}${JSON.stringify(row).length > 100 ? '...' : ''}
+                    </div>
+                `).join('') + `<div style="padding: 8px; color: #666; font-size: 12px;">共 ${jsonData.length} 条数据</div>`;
+                
+                // 存储预览数据供导入使用
+                window.importPreviewData = jsonData;
+                
+            } catch (error) {
+                console.error('解析 Excel 失败:', error);
+                showToast('解析 Excel 文件失败，请检查文件格式', 'error');
+            }
+        });
+        
+        // 确认导入
+        async function confirmImport() {
+            if (!window.importPreviewData || window.importPreviewData.length === 0) {
+                showToast('请先选择 Excel 文件', 'error');
+                return;
+            }
+            
+            const importType = document.getElementById('importType').value;
+            const headerId = document.getElementById('importHeader').value || null;
+            const prefix = document.getElementById('importPrefix').value.trim() || (importType === 'requirement' ? 'REQ' : 'TC');
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (const row of window.importPreviewData) {
+                try {
+                    const payload = {
+                        projectId: currentProjectId,
+                        prefix: prefix,
+                        headerId: headerId,
+                        savePrefix: false
+                    };
+                    
+                    if (importType === 'requirement') {
+                        // 尝试多种列名映射
+                        payload.description = row['描述'] || row['需求描述'] || row['Description'] || row['需求'] || '';
+                        payload.richContent = `<p>${payload.description}</p>`;
+                        payload.acceptanceCriteria = row['验收标准'] || row['AcceptanceCriteria'] || row['验收'] || '';
+                        
+                        // 如果有前缀列，使用它
+                        if (row['前缀'] || row['Prefix']) {
+                            payload.prefix = row['前缀'] || row['Prefix'];
+                        }
+                    } else {
+                        // 用例导入
+                        payload.steps = row['操作步骤'] || row['步骤'] || row['Steps'] || row['操作'] || '';
+                        payload.richContent = `<p>${payload.steps}</p>`;
+                        payload.expectedResult = row['预期结果'] || row['ExpectedResult'] || row['预期'] || '';
+                        
+                        if (row['前缀'] || row['Prefix']) {
+                            payload.prefix = row['前缀'] || row['Prefix'];
+                        }
+                    }
+                    
+                    const endpoint = importType === 'requirement' ? 'requirements' : 'testcases';
+                    const response = await fetch(`${API_BASE}/${endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    console.error('导入失败:', error);
+                    failCount++;
+                }
+            }
+            
+            showToast(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`, successCount > 0 ? 'success' : 'error');
+            closeModal('importModal');
+            window.importPreviewData = null;
+            
+            // 刷新数据
+            if (importType === 'requirement') {
+                await loadRequirements();
+            } else {
+                await loadTestcases();
+            }
+        }
+        
+        // 导出为 Excel（使用 XLSX 库）
+        async function exportToExcel() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.mjs');
+                let data = [];
+                let filename = '';
+                
+                if (currentTab === 'requirements') {
+                    data = requirementsData.map(req => ({
+                        '需求 ID': req.reqId,
+                        '前缀': req.prefix,
+                        '需求描述': req.description,
+                        '验收标准': req.acceptanceCriteria || '',
+                        '创建时间': new Date(req.createdAt).toLocaleString('zh-CN'),
+                        '更新时间': new Date(req.updatedAt).toLocaleString('zh-CN')
+                    }));
+                    filename = `需求导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+                } else {
+                    data = testcasesData.map(tc => ({
+                        '用例 ID': tc.tcId,
+                        '前缀': tc.prefix,
+                        '操作步骤': tc.steps,
+                        '预期结果': tc.expectedResult || '',
+                        '创建时间': new Date(tc.createdAt).toLocaleString('zh-CN'),
+                        '更新时间': new Date(tc.updatedAt).toLocaleString('zh-CN')
+                    }));
+                    filename = `用例导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+                }
+                
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+                XLSX.writeFile(workbook, filename);
+                
+                showToast(`导出成功：${data.length} 条`, 'success');
+            } catch (error) {
+                console.error('导出失败:', error);
+                // 降级到 CSV 导出
+                exportToExcelCSV();
+            }
+        }
+        
+        // 降级 CSV 导出
+        function exportToExcelCSV() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            let csv = '';
+            if (currentTab === 'requirements') {
+                csv = '需求 ID，前缀，需求描述，验收标准，创建时间，更新时间\n';
+                requirementsData.forEach(req => {
+                    csv += `"${req.reqId}","${req.prefix}","${(req.description || '').replace(/"/g, '""')}","${(req.acceptanceCriteria || '').replace(/"/g, '""')}","${req.createdAt}","${req.updatedAt}"\n`;
+                });
+            } else {
+                csv = '用例 ID，前缀，操作步骤，预期结果，创建时间，更新时间\n';
+                testcasesData.forEach(tc => {
+                    csv += `"${tc.tcId}","${tc.prefix}","${(tc.steps || '').replace(/"/g, '""')}","${(tc.expectedResult || '').replace(/"/g, '""')}","${tc.createdAt}","${tc.updatedAt}"\n`;
+                });
+            }
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${currentTab}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showToast('导出成功 (CSV 格式)', 'success');
+        }
+        
+        // 导出为 PDF
+        async function exportToPDF() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                // 使用浏览器打印功能生成 PDF
+                const printWindow = window.open('', '_blank');
+                const data = currentTab === 'requirements' ? requirementsData : testcasesData;
+                const title = currentTab === 'requirements' ? '需求列表' : '用例列表';
+                
+                let tableRows = '';
+                if (currentTab === 'requirements') {
+                    tableRows = data.map(req => `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${req.reqId}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${req.description || ''}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${req.acceptanceCriteria || '-'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tableRows = data.map(tc => `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${tc.tcId}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${tc.steps || ''}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${tc.expectedResult || '-'}</td>
+                        </tr>
+                    `).join('');
+                }
+                
+                const html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>${title} - ${new Date().toLocaleDateString('zh-CN')}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 20px; }
+                            h1 { color: #667eea; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th { background: #667eea; color: white; padding: 10px; text-align: left; }
+                            .info { margin-bottom: 20px; color: #666; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>${title}</h1>
+                        <div class="info">项目 ID: ${currentProjectId} | 导出时间：${new Date().toLocaleString('zh-CN')} | 共 ${data.length} 条</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>${currentTab === 'requirements' ? '需求 ID' : '用例 ID'}</th>
+                                    <th>${currentTab === 'requirements' ? '需求描述' : '操作步骤'}</th>
+                                    <th>${currentTab === 'requirements' ? '验收标准' : '预期结果'}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </body>
+                    </html>
+                `;
+                
+                printWindow.document.write(html);
+                printWindow.document.close();
+                printWindow.focus();
+                
+                // 等待内容加载后打印
+                setTimeout(() => {
+                    printWindow.print();
+                    // printWindow.close(); // 不自动关闭，让用户自己关闭
+                }, 500);
+                
+                showToast('PDF 导出已启动，请在打印对话框中选择"另存为 PDF"', 'success');
+            } catch (error) {
+                console.error('PDF 导出失败:', error);
+                showToast('PDF 导出失败', 'error');
+            }
+        }
+
+        function switchUser() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = '/login.html';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            localStorage.removeItem('savedUsername');
+            localStorage.removeItem('savedPassword');
+            window.location.href = '/login.html';
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
