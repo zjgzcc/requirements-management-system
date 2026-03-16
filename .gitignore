@@ -1,0 +1,40 @@
+# 依赖
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# 数据文件 (包含敏感信息)
+web/*.json
+!web/package.json
+
+# 上传文件
+web/uploads/*
+!web/uploads/.gitkeep
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# 测试
+coverage/
+.nyc_output/
