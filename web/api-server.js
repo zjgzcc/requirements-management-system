@@ -1388,41 +1388,97 @@ async function handleApiRequest(req, res, fullUrl) {
         }
 
         // ===== 文件上传 API =====
+        // 【基础设施模块】增强版：支持简单上传和分片上传
         if (url === '/api/upload' && method === 'POST') {
-            const form = new formidable.IncomingForm();
-            form.uploadDir = UPLOADS_DIR;
-            form.keepExtensions = true;
-            form.maxFileSize = 50 * 1024 * 1024; // 50MB
-
-            form.parse(req, (err, fields, files) => {
-                if (err) {
-                    return jsonRes(res, 500, { success: false, message: '上传失败：' + err.message });
-                }
-
-                const uploadedFiles = [];
-                Object.values(files).forEach(fileArray => {
-                    const fileArray = Array.isArray(file) ? file : [file];
-                    fileArray.forEach(file => {
-                        const fileName = `${Date.now()}_${path.basename(file.filepath)}`;
-                        const newPath = path.join(UPLOADS_DIR, fileName);
-                        
-                        fs.renameSync(file.filepath, newPath);
-                        
-                        uploadedFiles.push({
-                            id: generateUniqueId(),
-                            originalName: file.originalFilename,
-                            fileName: fileName,
-                            mimeType: file.mimetype,
-                            size: file.size,
-                            url: `/uploads/${fileName}`,
-                            uploadedAt: new Date().toISOString()
-                        });
-                    });
+            const perfMonitor = startPerformanceMonitor();
+            
+            try {
+                const result = await handleSimpleUpload(req, res);
+                endPerformanceMonitor(perfMonitor, 'file_upload_simple', {
+                    files: result.data?.length || 0
                 });
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'file_upload' });
+                return jsonRes(res, 400, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_UPLOAD_FAILED));
+            }
+        }
 
-                return jsonRes(res, 200, { success: true, data: uploadedFiles });
-            });
-            return;
+        // 分片上传 - 初始化
+        if (url === '/api/upload/chunked/init' && method === 'POST') {
+            try {
+                const result = await initChunkedUpload(req, res);
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'chunked_upload_init' });
+                return jsonRes(res, 400, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_UPLOAD_FAILED));
+            }
+        }
+
+        // 分片上传 - 上传分片
+        if (url.match(/^\/api\/upload\/chunks\/[^\/]+\/\d+$/) && method === 'POST') {
+            const parts = url.split('/');
+            const uploadId = parts[4];
+            const chunkIndex = parseInt(parts[5]);
+            
+            try {
+                const result = await uploadChunk(req, res, uploadId, chunkIndex);
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'chunk_upload', uploadId, chunkIndex });
+                return jsonRes(res, 400, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_UPLOAD_FAILED));
+            }
+        }
+
+        // 分片上传 - 合并分片
+        if (url.match(/^\/api\/upload\/chunks\/[^\/]+\/merge$/) && method === 'POST') {
+            const uploadId = url.split('/')[4];
+            
+            try {
+                const result = await mergeChunks(req, res, uploadId);
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'chunk_merge', uploadId });
+                return jsonRes(res, 400, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_UPLOAD_FAILED));
+            }
+        }
+
+        // 查询上传进度
+        if (url.match(/^\/api\/upload\/progress\/[^\/]+$/) && method === 'GET') {
+            const uploadId = url.split('/')[4];
+            
+            try {
+                const result = await getUploadProgress(req, res, uploadId);
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'upload_progress', uploadId });
+                return jsonRes(res, 404, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_NOT_FOUND));
+            }
+        }
+
+        // 获取上传记录
+        if (url === '/api/uploads' && method === 'GET') {
+            try {
+                const { getAllUploadRecords } = require('./file-upload');
+                const records = getAllUploadRecords();
+                return jsonRes(res, 200, createSuccessResponse(records));
+            } catch (error) {
+                logError(error, { type: 'get_uploads' });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
+        }
+
+        // 删除上传文件
+        if (url.match(/^\/api\/uploads\/[^\/]+$/) && method === 'DELETE') {
+            const fileId = url.split('/')[3];
+            
+            try {
+                const result = deleteUploadFile(fileId);
+                return jsonRes(res, 200, result);
+            } catch (error) {
+                logError(error, { type: 'delete_upload', fileId });
+                return jsonRes(res, 404, createErrorResponse(error.message, error.errorCode || ERROR_CODES.FILE_NOT_FOUND));
+            }
         }
 
         // ===== 前缀设置 API =====
@@ -1620,20 +1676,63 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, data: sorted.slice(0, limit) });
         }
 
+        // ===== 基础设施监控 API =====
+        // 获取系统日志统计
+        if (url === '/api/system/stats' && method === 'GET') {
+            try {
+                const stats = getLogStats();
+                return jsonRes(res, 200, createSuccessResponse(stats, '系统统计信息'));
+            } catch (error) {
+                logError(error, { type: 'system_stats' });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
+        }
+
+        // 健康检查
+        if (url === '/api/health' && method === 'GET') {
+            return jsonRes(res, 200, createSuccessResponse({
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                uptime: process.uptime(),
+                memory: process.memoryUsage(),
+                version: '1.0.0'
+            }, '系统健康'));
+        }
+
         // 404
         return jsonRes(res, 404, { success: false, message: '接口不存在' });
 
     } catch (error) {
-        console.error('API 错误:', error);
-        return jsonRes(res, 500, { success: false, message: '服务器内部错误' });
+        // 使用全局错误处理中间件
+        logError(error, { url: fullUrl, method: method });
+        return jsonRes(res, 500, createErrorResponse(
+            process.env.NODE_ENV === 'development' ? error.message : '服务器内部错误',
+            error.errorCode || ERROR_CODES.INTERNAL_ERROR,
+            process.env.NODE_ENV === 'development' ? { stack: error.stack } : {}
+        ));
     }
 }
 
-// 创建 HTTP 服务器
+// 创建 HTTP 服务器 - 集成请求日志和性能监控
 const server = http.createServer(async (req, res) => {
     const fullUrl = req.url;
     const url = req.url.split('?')[0];
+    const startTime = Date.now();
+    
+    // 性能监控开始
+    const perfMonitor = startPerformanceMonitor();
+    
+    // 记录请求开始
     console.log(`${new Date().toISOString()} - ${req.method} ${fullUrl}`);
+
+    // 监听响应完成事件以记录日志
+    res.on('finish', () => {
+        const duration = Date.now() - startTime;
+        logRequest(req.method, fullUrl, res.statusCode, duration);
+        endPerformanceMonitor(perfMonitor, `${req.method} ${url}`, {
+            statusCode: res.statusCode
+        });
+    });
 
     if (url.startsWith('/api/')) {
         return handleApiRequest(req, res, fullUrl);
@@ -1690,7 +1789,14 @@ server.listen(PORT, '0.0.0.0', () => {
 ║                                                          ║
 ║  默认管理员：admin / admin123                            ║
 ║                                                          ║
-║  功能模块：                                              ║
+║  【基础设施模块】增强功能：                              ║
+║    ✓ 全局错误处理中间件                                  ║
+║    ✓ 请求日志记录（所有 API 调用）                        ║
+║    ✓ 性能监控（慢查询告警 >1s）                          ║
+║    ✓ 文件上传优化（支持断点续传/进度显示）               ║
+║    ✓ 统一 API 响应格式                                    ║
+║                                                          ║
+║  核心功能模块：                                          ║
 ║    ✓ 用户认证管理                                        ║
 ║    ✓ 项目管理                                            ║
 ║    ✓ 需求管理（富文本编辑器）                            ║
@@ -1701,12 +1807,14 @@ server.listen(PORT, '0.0.0.0', () => {
 ║    ✓ 修改历史记录                                        ║
 ║    ✓ 批量操作                                            ║
 ║                                                          ║
-║  用例管理特色：                                          ║
-║    ✓ Quill.js 富文本编辑器（表格/图片/视频/代码块）      ║
-║    ✓ 预定义用例模板（6 种常用场景）                      ║
-║    ✓ 自定义模板管理                                      ║
-║    ✓ Excel 批量导入导出                                  ║
-║    ✓ 用例历史记录                                        ║
+║  监控接口：                                              ║
+║    GET /api/health - 健康检查                            ║
+║    GET /api/system/stats - 系统统计                      ║
+║                                                          ║
+║  日志文件：                                              ║
+║    logs/requests.log - 请求日志                          ║
+║    logs/errors.log - 错误日志                            ║
+║    logs/performance.log - 性能日志                       ║
 ║                                                          ║
 ║  按 Ctrl+C 停止服务器                                    ║
 ╚══════════════════════════════════════════════════════════╝

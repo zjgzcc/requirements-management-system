@@ -146,6 +146,15 @@
             text-align: left; min-width: 120px;
         }
         .trace-checkbox { width: 20px; height: 20px; cursor: pointer; }
+        
+        /* 分页样式 */
+        #tracePagination {
+            display: flex; justify-content: center; align-items: center;
+            gap: 10px; margin-top: 20px; padding: 15px;
+        }
+        #tracePagination button {
+            min-width: 40px;
+        }
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5);
@@ -175,13 +184,77 @@
             border-radius: 0 0 8px 8px !important;
             font-family: inherit !important;
             font-size: 14px !important;
-            min-height: 200px;
+            min-height: 250px;
         }
         .editor-container .ql-container.ql-focused {
             border-color: #667eea !important;
         }
         .ql-editor {
-            min-height: 200px;
+            min-height: 250px;
+        }
+        
+        /* 编辑器表格样式优化 */
+        .ql-editor table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .ql-editor table td, .ql-editor table th {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            min-width: 60px;
+        }
+        .ql-editor table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .ql-editor table tr:hover {
+            background: #f9f9ff;
+        }
+        
+        /* 编辑器图片样式 */
+        .ql-editor img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .ql-editor img:hover {
+            opacity: 0.9;
+        }
+        
+        /* 编辑器视频样式 */
+        .ql-editor iframe {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .ql-editor video {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        /* 编辑器代码块样式 */
+        .ql-editor pre.ql-syntax {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        /* 编辑器引用块样式 */
+        .ql-editor blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+            margin: 10px 0;
+            color: #666;
+            font-style: italic;
         }
         .attachment-list {
             margin-top: 10px;
@@ -329,6 +402,40 @@
             border: 2px dashed #f39c12;
         }
         
+        /* 基线操作按钮 */
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-sm:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .btn-danger {
+            padding: 10px 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        .btn-danger:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
         /* 标题层级样式 */
         .header-indicator {
             display: inline-block;
@@ -410,6 +517,7 @@
                     <button class="btn-secondary" onclick="showImportModal()">📥 导入</button>
                     <button class="btn-secondary" onclick="exportToExcel()">📊 导出 Excel</button>
                     <button class="btn-secondary" onclick="exportToPDF()">📄 导出 PDF</button>
+                    <button class="btn-secondary" onclick="window.open('testcases.html', '_blank')">🧪 高级用例管理</button>
                 </div>
             </div>
 
@@ -766,6 +874,70 @@
         </div>
     </div>
 
+    <!-- 基线对比选择模态框 -->
+    <div class="modal-overlay" id="baselineCompareSelectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>🔍 对比基线版本</h2>
+                <button class="close-btn" onclick="closeModal('baselineCompareSelectModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>基线版本 1（旧版本）</label>
+                    <select id="compareBaseline1">
+                        <option value="">请选择基线版本 1</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>基线版本 2（新版本）</label>
+                    <select id="compareBaseline2">
+                        <option value="">请选择基线版本 2</option>
+                    </select>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <p style="margin: 0; color: #666; font-size: 14px;">
+                        💡 对比结果将显示两个版本之间的差异：
+                        <br>• 新增项（在版本 2 中新增）
+                        <br>• 删除项（在版本 2 中删除）
+                        <br>• 修改项（内容发生变化）
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('baselineCompareSelectModal')">取消</button>
+                <button class="btn-primary" onclick="compareBaselines()">开始对比</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 基线恢复确认模态框 -->
+    <div class="modal-overlay" id="baselineRestoreModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>⚠️ 恢复基线版本</h2>
+                <button class="close-btn" onclick="closeModal('baselineRestoreModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #856404; font-size: 14px;">
+                        <strong>⚠️ 警告：</strong>恢复基线将覆盖当前的需求和用例数据，请谨慎操作！
+                    </p>
+                </div>
+                <div id="restoreBaselineInfo" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>
+                        <input type="checkbox" id="confirmRestore"> 我已了解风险，确认要恢复到此版本
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('baselineRestoreModal')">取消</button>
+                <button class="btn-danger" onclick="confirmRestoreBaseline()" id="confirmRestoreBtn" disabled>确认恢复</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 历史记录模态框 -->
     <div class="modal-overlay" id="historyModal">
         <div class="modal">
@@ -856,6 +1028,9 @@
 
         // 初始化编辑器
         function initEditors() {
+            // 自定义图片处理 - 支持拖拽上传
+            const ImageFormat = Quill.import('formats/image');
+            
             const editorOptions = {
                 theme: 'snow',
                 modules: {
@@ -867,19 +1042,79 @@
                         [{ 'align': [] }],
                         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                         [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        [{ 'direction': 'rtl' }],
                         ['link', 'image', 'video'],
-                        ['table'],
+                        [{ 'table': 'table' }],
                         ['clean']
                     ]
-                }
+                },
+                placeholder: '请输入内容，支持富文本格式、表格、图片、视频...',
+                theme: 'snow'
             };
 
             reqEditor = new Quill('#reqEditor', editorOptions);
             tcEditor = new Quill('#tcEditor', editorOptions);
 
+            // 增强：图片拖拽上传
+            setupImageDrop(reqEditor, 'reqFileInput', reqAttachments, 'reqAttachments');
+            setupImageDrop(tcEditor, 'tcFileInput', tcAttachments, 'tcAttachments');
+
             // 文件上传处理
             setupFileUpload('reqFileInput', reqAttachments, 'reqAttachments');
             setupFileUpload('tcFileInput', tcAttachments, 'tcAttachments');
+        }
+        
+        // 图片拖拽上传
+        function setupImageDrop(editor, inputId, attachmentsArray, containerId) {
+            const editorElement = document.querySelector(`#${inputId.replace('Input', '')} .ql-editor`);
+            if (!editorElement) return;
+            
+            editorElement.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                editorElement.style.background = '#f0f4ff';
+            });
+            
+            editorElement.addEventListener('dragleave', () => {
+                editorElement.style.background = '';
+            });
+            
+            editorElement.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                editorElement.style.background = '';
+                
+                const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                if (files.length === 0) return;
+                
+                const formData = new FormData();
+                files.forEach(file => formData.append('file', file));
+                
+                try {
+                    const response = await fetch(`${API_BASE}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        attachmentsArray.push(...data.data);
+                        renderAttachments(attachmentsArray, containerId);
+                        
+                        // 插入图片到编辑器
+                        const range = editor.getSelection(true);
+                        data.data.forEach(file => {
+                            if (file.mimeType.startsWith('image/')) {
+                                editor.insertEmbed(range.index, 'image', file.url);
+                                range.index++;
+                            }
+                        });
+                        
+                        showToast(`插入 ${data.data.length} 张图片`, 'success');
+                    }
+                } catch (error) {
+                    console.error('图片上传失败:', error);
+                    showToast('图片上传失败', 'error');
+                }
+            });
         }
 
         // 文件上传处理
@@ -1076,6 +1311,9 @@
                 document.getElementById('baselinesView').style.display = 'none';
                 document.getElementById('traceView').style.display = 'block';
                 document.getElementById('batchActions').style.display = 'none';
+                // 重置批量选择状态
+                selectedRequirementIds.clear();
+                hideBatchToolbar();
                 await loadTraceMatrix();
             }
         }
@@ -1289,13 +1527,21 @@
                 
                 if (data.success && data.data.length > 0) {
                     list.innerHTML = data.data.map(b => `
-                        <div class="baseline-card" onclick="showBaselineCompare('${b.id}')">
-                            <span class="baseline-version">${b.version}</span>
-                            <div class="baseline-name">${b.name}</div>
-                            <div class="baseline-info">
-                                ${b.type === 'requirement' ? '📋 需求' : '🧪 用例'} 
-                                · ${b.items.length} 项 
-                                · ${new Date(b.createdAt).toLocaleDateString('zh-CN')}
+                        <div class="baseline-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;" onclick="showBaselineCompare('${b.id}')">
+                                    <span class="baseline-version">${b.version}</span>
+                                    <div class="baseline-name">${b.name}</div>
+                                    <div class="baseline-info">
+                                        ${b.type === 'requirement' ? '📋 需求' : '🧪 用例'} 
+                                        · ${b.items.length} 项 
+                                        · ${new Date(b.createdAt).toLocaleDateString('zh-CN')}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                                    <button class="btn-sm" onclick="showRestoreModal('${b.id}')" title="恢复到此版本" style="padding: 5px 10px; font-size: 12px;">↩️ 恢复</button>
+                                    <button class="btn-sm" onclick="exportBaseline('${b.id}')" title="导出为 PDF" style="padding: 5px 10px; font-size: 12px;">📄 导出</button>
+                                </div>
                             </div>
                         </div>
                     `).join('');
@@ -1316,26 +1562,286 @@
                 if (data.success) {
                     const baseline = data.data;
                     document.getElementById('baselineCompareTitle').textContent = `${baseline.version} - ${baseline.name}`;
-                    const tbody = document.getElementById('baselineCompareBody');
-                    tbody.innerHTML = baseline.items.map(item => `
-                        <tr>
-                            <td><strong>${item.reqId}</strong></td>
-                            <td>${item.description}</td>
-                        </tr>
-                    `).join('');
+                    const compareResults = document.getElementById('compareResults');
+                    compareResults.innerHTML = `
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                            <h4 style="margin-top: 0;">📋 基线详情</h4>
+                            <p><strong>版本：</strong>${baseline.version}</p>
+                            <p><strong>名称：</strong>${baseline.name}</p>
+                            <p><strong>类型：</strong>${baseline.type === 'requirement' ? '需求' : '用例'}</p>
+                            <p><strong>项目数：</strong>${baseline.items.length}</p>
+                            <p><strong>创建时间：</strong>${new Date(baseline.createdAt).toLocaleString('zh-CN')}</p>
+                            <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;">
+                            <h5>包含项目：</h5>
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                ${baseline.items.map(item => `
+                                    <div style="padding: 8px; border-bottom: 1px solid #eee;">
+                                        <strong>${item.reqId}</strong>: ${item.description || '无描述'}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
                     document.getElementById('baselineCompare').style.display = 'block';
                 }
             } catch (error) {
                 console.error('加载基线详情失败:', error);
+                showToast('加载基线详情失败', 'error');
+            }
+        }
+
+        function closeBaselineCompare() {
+            document.getElementById('baselineCompare').style.display = 'none';
+        }
+
+        // ===== 基线对比功能 =====
+        async function showCompareSelectModal() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/baselines?projectId=${currentProjectId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    const select1 = document.getElementById('compareBaseline1');
+                    const select2 = document.getElementById('compareBaseline2');
+                    
+                    const options = data.data.map(b => 
+                        `<option value="${b.id}">${b.version} - ${b.name} (${b.type === 'requirement' ? '需求' : '用例'}, ${b.items.length}项)</option>`
+                    ).join('');
+                    
+                    select1.innerHTML = '<option value="">请选择基线版本 1</option>' + options;
+                    select2.innerHTML = '<option value="">请选择基线版本 2</option>' + options;
+                    document.getElementById('baselineCompareSelectModal').classList.add('active');
+                } else {
+                    showToast('至少需要两个基线版本才能对比', 'error');
+                }
+            } catch (error) {
+                console.error('加载基线列表失败:', error);
+                showToast('加载基线列表失败', 'error');
+            }
+        }
+
+        async function compareBaselines() {
+            const baselineId1 = document.getElementById('compareBaseline1').value;
+            const baselineId2 = document.getElementById('compareBaseline2').value;
+            
+            if (!baselineId1 || !baselineId2) {
+                showToast('请选择两个基线版本', 'error');
+                return;
+            }
+            
+            if (baselineId1 === baselineId2) {
+                showToast('请选择两个不同的基线版本', 'error');
+                return;
+            }
+            
+            try {
+                closeModal('baselineCompareSelectModal');
+                
+                const response = await fetch(`${API_BASE}/baselines/compare?baselineId1=${baselineId1}&baselineId2=${baselineId2}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const result = data.data;
+                    const stats = data.stats;
+                    
+                    document.getElementById('baselineCompareTitle').textContent = 
+                        `${result.baseline1.version} ${result.baseline1.name} → ${result.baseline2.version} ${result.baseline2.name}`;
+                    
+                    document.getElementById('statAdded').textContent = stats.added;
+                    document.getElementById('statRemoved').textContent = stats.removed;
+                    document.getElementById('statModified').textContent = stats.modified;
+                    document.getElementById('statUnchanged').textContent = stats.unchanged;
+                    
+                    let html = '';
+                    
+                    // 新增项
+                    if (result.added.length > 0) {
+                        html += `
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #2e7d32; margin-bottom: 10px;">➕ 新增项 (${result.added.length})</h4>
+                                ${result.added.map(item => `
+                                    <div style="background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #4caf50;">
+                                        <strong>${item.reqId}</strong>: ${item.description || '无描述'}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // 删除项
+                    if (result.removed.length > 0) {
+                        html += `
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #c62828; margin-bottom: 10px;">➖ 删除项 (${result.removed.length})</h4>
+                                ${result.removed.map(item => `
+                                    <div style="background: #ffebee; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ef5350;">
+                                        <strong>${item.reqId}</strong>: ${item.description || '无描述'}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // 修改项
+                    if (result.modified.length > 0) {
+                        html += `
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #e65100; margin-bottom: 10px;">✏️ 修改项 (${result.modified.length})</h4>
+                                ${result.modified.map(item => `
+                                    <div style="background: #fff3e0; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ff9800;">
+                                        <strong>${item.reqId}</strong>: ${item.description || '无描述'}
+                                        <div style="margin-top: 8px; font-size: 13px;">
+                                            ${item.changes.map(change => `
+                                                <div style="margin: 5px 0;">
+                                                    <div style="color: #666;">${change.field}:</div>
+                                                    <div style="background: #ffebee; padding: 5px; margin: 3px 0; border-radius: 3px;">
+                                                        <span style="color: #c62828;">➜ ${change.oldValue || '(空)'}</span>
+                                                    </div>
+                                                    <div style="background: #e8f5e9; padding: 5px; margin: 3px 0; border-radius: 3px;">
+                                                        <span style="color: #2e7d32;">➜ ${change.newValue || '(空)'}</span>
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // 未变项
+                    if (result.unchanged.length > 0) {
+                        html += `
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #1565c0; margin-bottom: 10px;">✓ 未变项 (${result.unchanged.length})</h4>
+                                <details>
+                                    <summary style="cursor: pointer; color: #666;">点击查看未变化的项目</summary>
+                                    <div style="margin-top: 10px;">
+                                        ${result.unchanged.map(item => `
+                                            <div style="background: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 5px;">
+                                                <strong>${item.reqId}</strong>: ${item.description || '无描述'}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </details>
+                            </div>
+                        `;
+                    }
+                    
+                    document.getElementById('compareResults').innerHTML = html || '<p>两个基线版本完全相同</p>';
+                    document.getElementById('baselineCompare').style.display = 'block';
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('对比基线失败:', error);
+                showToast('对比基线失败', 'error');
+            }
+        }
+
+        // ===== 基线恢复功能 =====
+        let currentRestoreBaselineId = null;
+        
+        function showRestoreModal(baselineId) {
+            currentRestoreBaselineId = baselineId;
+            
+            const response = fetch(`${API_BASE}/baselines/${baselineId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const baseline = data.data;
+                        document.getElementById('restoreBaselineInfo').innerHTML = `
+                            <p><strong>版本：</strong>${baseline.version}</p>
+                            <p><strong>名称：</strong>${baseline.name}</p>
+                            <p><strong>类型：</strong>${baseline.type === 'requirement' ? '需求' : '用例'}</p>
+                            <p><strong>项目数：</strong>${baseline.items.length}</p>
+                            <p><strong>创建时间：</strong>${new Date(baseline.createdAt).toLocaleString('zh-CN')}</p>
+                        `;
+                        document.getElementById('confirmRestore').checked = false;
+                        document.getElementById('confirmRestoreBtn').disabled = true;
+                        document.getElementById('baselineRestoreModal').classList.add('active');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载基线信息失败:', error);
+                    showToast('加载基线信息失败', 'error');
+                });
+        }
+
+        document.getElementById('confirmRestore')?.addEventListener('change', function() {
+            document.getElementById('confirmRestoreBtn').disabled = !this.checked;
+        });
+
+        async function confirmRestoreBaseline() {
+            if (!currentRestoreBaselineId) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/baselines/${currentRestoreBaselineId}/restore`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`成功恢复 ${data.data.restoredItems.length} 项`, 'success');
+                    closeModal('baselineRestoreModal');
+                    currentRestoreBaselineId = null;
+                    // 刷新当前视图
+                    if (currentTab === 'requirements') {
+                        await loadRequirements();
+                    } else if (currentTab === 'testcases') {
+                        await loadTestcases();
+                    }
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('恢复基线失败:', error);
+                showToast('恢复基线失败', 'error');
+            }
+        }
+
+        // ===== 基线导出功能 =====
+        async function exportBaseline(baselineId) {
+            try {
+                const response = await fetch(`${API_BASE}/baselines/${baselineId}/export`);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // 获取基线信息用于文件名
+                const baselineResponse = await fetch(`${API_BASE}/baselines/${baselineId}`);
+                const baselineData = await baselineResponse.json();
+                if (baselineData.success) {
+                    const baseline = baselineData.data;
+                    a.download = `baseline_${baseline.version}_${new Date().toISOString().split('T')[0]}.html`;
+                } else {
+                    a.download = `baseline_${baselineId}.html`;
+                }
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('导出成功，文件已下载', 'success');
+            } catch (error) {
+                console.error('导出基线失败:', error);
+                showToast('导出基线失败', 'error');
             }
         }
 
         let traceMatrixData = null;
+        let currentPage = 1;
+        const pageSize = 20;
 
-        async function loadTraceMatrix() {
+        async function loadTraceMatrix(page = 1) {
             if (!currentProjectId) return;
+            currentPage = page;
+            
             try {
-                const response = await fetch(`${API_BASE}/trace-matrix?projectId=${currentProjectId}`);
+                const response = await fetch(`${API_BASE}/trace-matrix?projectId=${currentProjectId}&page=${page}&pageSize=${pageSize}`);
                 const data = await response.json();
                 if (!data.success) { showToast('加载矩阵失败', 'error'); return; }
 
@@ -1350,53 +1856,125 @@
                     <span>✅ 覆盖率：<strong>${stats.totalRequirements > 0 ? Math.round(stats.coveredRequirements / stats.totalRequirements * 100) : 0}%</strong></span>
                 `;
                 
-                const tbody = document.getElementById('matrixBody');
-                
-                if (traceMatrixData.requirements.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><p>暂无需求，请先添加需求</p></td></tr>';
-                    return;
-                }
-
-                let html = '';
-                traceMatrixData.requirements.forEach(req => {
-                    // 查找该需求关联的所有用例
-                    const relatedTcs = [];
-                    Object.keys(traceMatrixData.traceMap).forEach(key => {
-                        const [reqId, tcId] = key.split(':');
-                        if (reqId === req.id) {
-                            const tc = traceMatrixData.testcases.find(t => t.id === tcId);
-                            if (tc) {
-                                relatedTcs.push({ tc, trace: traceMatrixData.traceMap[key] });
-                            }
-                        }
-                    });
-                    
-                    const hasTraces = relatedTcs.length > 0;
-                    
-                    html += `
-                        <tr>
-                            <td><strong>${req.reqId}</strong></td>
-                            <td>${req.description || '-'}</td>
-                            <td>
-                                ${hasTraces 
-                                    ? relatedTcs.map(rt => `<span style="display:inline-block;padding:2px 8px;background:#e8f5e9;border-radius:4px;margin:2px;font-size:13px;">${rt.tc.tcId}</span>`).join('')
-                                    : '<span style="color:#999;">未关联</span>'
-                                }
-                            </td>
-                            <td>
-                                ${hasTraces 
-                                    ? '<span style="color:#27ae60;">✅ 已追踪</span>' 
-                                    : '<span style="color:#e74c3c;">⚠️ 未追踪</span>'
-                                }
-                            </td>
-                        </tr>
-                    `;
-                });
-                
-                tbody.innerHTML = html;
+                renderMatrixBody();
+                renderPagination();
             } catch (error) {
                 console.error('加载矩阵失败:', error);
                 showToast('加载矩阵失败', 'error');
+            }
+        }
+
+        function renderMatrixBody() {
+            const tbody = document.getElementById('matrixBody');
+            
+            if (!traceMatrixData || traceMatrixData.requirements.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>暂无需求，请先添加需求</p></td></tr>';
+                return;
+            }
+
+            let html = '';
+            traceMatrixData.requirements.forEach(req => {
+                // 查找该需求关联的所有用例
+                const relatedTcs = [];
+                Object.keys(traceMatrixData.traceMap).forEach(key => {
+                    const [reqId, tcId] = key.split(':');
+                    if (reqId === req.id) {
+                        const tc = traceMatrixData.testcases.find(t => t.id === tcId);
+                        if (tc) {
+                            relatedTcs.push({ tc, trace: traceMatrixData.traceMap[key] });
+                        }
+                    }
+                });
+                
+                const hasTraces = relatedTcs.length > 0;
+                const isSelected = selectedRequirementIds.has(req.id);
+                
+                html += `
+                    <tr>
+                        <td>
+                            <input type="checkbox" 
+                                data-req-id="${req.id}" 
+                                ${isSelected ? 'checked' : ''}
+                                onchange="toggleRequirementSelection('${req.id}', this)"
+                                style="width: 18px; height: 18px; cursor: pointer;">
+                        </td>
+                        <td><strong>${req.reqId}</strong></td>
+                        <td>${req.description || '-'}</td>
+                        <td>
+                            ${hasTraces 
+                                ? relatedTcs.map(rt => `<span style="display:inline-block;padding:2px 8px;background:#e8f5e9;border-radius:4px;margin:2px;font-size:13px;">${rt.tc.tcId}</span>`).join('')
+                                : '<span style="color:#999;">未关联</span>'
+                            }
+                        </td>
+                        <td>
+                            ${hasTraces 
+                                ? '<span style="color:#27ae60;">✅ 已追踪</span>' 
+                                : '<span style="color:#e74c3c;">⚠️ 未追踪</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        function renderPagination() {
+            const paginationDiv = document.getElementById('tracePagination');
+            const pagination = traceMatrixData.pagination;
+            
+            if (!pagination || pagination.totalPages <= 1) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <span style="color: #666;">第 ${pagination.page} / ${pagination.totalPages} 页，共 ${pagination.totalItems} 条</span>
+            `;
+
+            // 上一页
+            if (pagination.hasPrevPage) {
+                html += `<button class="btn-secondary" onclick="loadTraceMatrix(${pagination.page - 1})">⬅️ 上一页</button>`;
+            }
+
+            // 页码按钮（最多显示 5 个）
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.totalPages, pagination.page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === pagination.page) {
+                    html += `<button class="btn-primary" disabled style="background: #667eea;">${i}</button>`;
+                } else {
+                    html += `<button class="btn-secondary" onclick="loadTraceMatrix(${i})">${i}</button>`;
+                }
+            }
+
+            // 下一页
+            if (pagination.hasNextPage) {
+                html += `<button class="btn-secondary" onclick="loadTraceMatrix(${pagination.page + 1})">下一页 ➡️</button>`;
+            }
+
+            // 快速跳转
+            html += `
+                <span style="margin-left: 10px;">跳转到</span>
+                <input type="number" id="pageJump" min="1" max="${pagination.totalPages}" 
+                    style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;"
+                    value="${pagination.page}">
+                <button class="btn-secondary" onclick="jumpToPage()">Go</button>
+            `;
+
+            paginationDiv.innerHTML = html;
+        }
+
+        function jumpToPage() {
+            const pageInput = document.getElementById('pageJump');
+            const page = parseInt(pageInput.value);
+            const pagination = traceMatrixData.pagination;
+            
+            if (page >= 1 && page <= pagination.totalPages) {
+                loadTraceMatrix(page);
+            } else {
+                showToast('请输入有效的页码', 'error');
             }
         }
 
@@ -2201,6 +2779,265 @@
             toast.className = `toast ${type} show`;
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
+
+        // ===== 批量关联功能 =====
+        let selectedRequirementIds = new Set();
+        let batchTestcaseIds = [];
+
+        function showBatchModal() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            document.getElementById('batchModal').classList.add('active');
+            loadBatchTestcases();
+        }
+
+        async function loadBatchTestcases() {
+            try {
+                const response = await fetch(`${API_BASE}/testcases?projectId=${currentProjectId}`);
+                const data = await response.json();
+                batchTestcaseIds = data.data || [];
+                
+                const select = document.getElementById('batchTestcaseSelect');
+                select.innerHTML = batchTestcaseIds.map(tc => 
+                    `<option value="${tc.id}">${tc.tcId} - ${tc.steps?.substring(0, 50) || ''}</option>`
+                ).join('');
+            } catch (error) {
+                showToast('加载用例列表失败', 'error');
+            }
+        }
+
+        function toggleSelectAll() {
+            const checkbox = document.getElementById('headerSelectAll');
+            const isChecked = checkbox.checked;
+            selectedRequirementIds.clear();
+            
+            if (isChecked && traceMatrixData) {
+                traceMatrixData.requirements.forEach(req => selectedRequirementIds.add(req.id));
+            }
+            
+            updateSelectedCount();
+            renderMatrixBody(); // 重新渲染以更新 checkbox 状态
+        }
+
+        function toggleSelectAllReqs() {
+            toggleSelectAll();
+        }
+
+        function toggleRequirementSelection(reqId, checkbox) {
+            if (checkbox.checked) {
+                selectedRequirementIds.add(reqId);
+            } else {
+                selectedRequirementIds.delete(reqId);
+            }
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = `已选择 ${selectedRequirementIds.size} 个需求`;
+            document.getElementById('headerSelectAll').checked = 
+                traceMatrixData && selectedRequirementIds.size === traceMatrixData.requirements.length;
+        }
+
+        function showBatchToolbar() {
+            document.getElementById('batchToolbar').style.display = 'block';
+            document.getElementById('headerSelectAll').style.display = 'block';
+        }
+
+        function hideBatchToolbar() {
+            document.getElementById('batchToolbar').style.display = 'none';
+            document.getElementById('headerSelectAll').style.display = 'none';
+            selectedRequirementIds.clear();
+            updateSelectedCount();
+            loadTraceMatrix();
+        }
+
+        async function batchLinkTestcases() {
+            if (selectedRequirementIds.size === 0) {
+                showToast('请先选择需求', 'error');
+                return;
+            }
+
+            const testcaseSelect = document.getElementById('batchTestcaseSelect');
+            const selectedTcIds = Array.from(testcaseSelect.selectedOptions).map(opt => opt.value);
+
+            if (selectedTcIds.length === 0) {
+                showToast('请选择至少一个用例', 'error');
+                return;
+            }
+
+            // 构建批量追踪数据
+            const batchTraces = [];
+            selectedRequirementIds.forEach(reqId => {
+                selectedTcIds.forEach(tcId => {
+                    batchTraces.push({ requirementId: reqId, testcaseId: tcId });
+                });
+            });
+
+            try {
+                const response = await fetch(`${API_BASE}/traces/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ traces: batchTraces })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeModal('batchModal');
+                    hideBatchToolbar();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('批量关联失败', 'error');
+            }
+        }
+
+        // ===== 智能推荐功能 =====
+        let recommendationData = [];
+
+        async function showRecommendations() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            document.getElementById('recommendationModal').classList.add('active');
+            await loadRecommendations();
+        }
+
+        async function loadRecommendations() {
+            try {
+                const response = await fetch(`${API_BASE}/traces/recommend?projectId=${currentProjectId}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showToast('加载推荐失败', 'error');
+                    return;
+                }
+
+                recommendationData = data.data || [];
+                renderRecommendations();
+            } catch (error) {
+                showToast('加载推荐失败', 'error');
+            }
+        }
+
+        function renderRecommendations() {
+            const tbody = document.getElementById('recommendationBody');
+            
+            if (recommendationData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>暂无推荐，请添加更多需求和用例</p></td></tr>';
+                return;
+            }
+
+            let html = '';
+            recommendationData.forEach((rec, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${rec.requirementDesc?.substring(0, 30) || '-'}</strong></td>
+                        <td>${rec.testcaseSteps?.substring(0, 50) || '-'}</td>
+                        <td>
+                            <span style="display:inline-block;padding:2px 8px;background:#fff3cd;border-radius:4px;font-size:13px;">
+                                匹配度：${rec.matchScore}
+                            </span>
+                        </td>
+                        <td>
+                            ${rec.matchedKeywords?.slice(0, 3).map(k => 
+                                `<span style="display:inline-block;padding:2px 6px;background:#e3f2fd;border-radius:4px;margin:2px;font-size:12px;">${k}</span>`
+                            ).join('') || '-'}
+                        </td>
+                        <td>
+                            <button class="btn-primary" style="padding: 4px 12px; font-size: 12px;" 
+                                onclick="acceptRecommendation('${rec.requirementId}', '${rec.testcaseId}')">
+                                ✅ 接受
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        async function acceptRecommendation(reqId, tcId) {
+            try {
+                const response = await fetch(`${API_BASE}/traces`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requirementId: reqId, testcaseId: tcId })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('关联成功', 'success');
+                    // 从推荐列表中移除
+                    recommendationData = recommendationData.filter(r => 
+                        !(r.requirementId === reqId && r.testcaseId === tcId)
+                    );
+                    renderRecommendations();
+                    // 刷新矩阵
+                    loadTraceMatrix();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('操作失败', 'error');
+            }
+        }
     </script>
+
+    <!-- 批量关联模态框 -->
+    <div class="modal-overlay" id="batchModal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🔗 批量关联用例</h2>
+                <button class="close-btn" onclick="closeModal('batchModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>选择要关联的用例（可多选）</label>
+                    <select id="batchTestcaseSelect" multiple style="min-height: 200px; width: 100%;">
+                    </select>
+                    <p style="color: #666; font-size: 13px; margin-top: 8px;">
+                        💡 提示：按住 Ctrl/Cmd 键可多选
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('batchModal')">取消</button>
+                <button class="btn-primary" onclick="batchLinkTestcases()">确认关联</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 智能推荐模态框 -->
+    <div class="modal-overlay" id="recommendationModal">
+        <div class="modal" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>💡 智能推荐关联</h2>
+                <button class="close-btn" onclick="closeModal('recommendationModal')">×</button>
+            </div>
+            <div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+                <div style="margin-bottom: 15px; padding: 12px; background: #e8f5e9; border-radius: 6px;">
+                    <strong>💡 推荐说明：</strong>基于关键词匹配度智能推荐可能的需求 - 用例关联，匹配度越高表示相关性越强
+                </div>
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th style="min-width: 150px;">需求</th>
+                            <th>用例</th>
+                            <th style="width: 100px;">匹配度</th>
+                            <th style="width: 200px;">关键词</th>
+                            <th style="width: 100px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recommendationBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('recommendationModal')">关闭</button>
+                <button class="btn-primary" onclick="loadRecommendations()">🔄 刷新推荐</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
