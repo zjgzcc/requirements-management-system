@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - 需求管理系统</title>
+    <title>登录 - 企业级研发管理平台</title>
     <style>
         * {
             margin: 0;
@@ -76,6 +76,10 @@
             font-size: 14px;
         }
 
+        .input-wrapper {
+            position: relative;
+        }
+
         .form-group input {
             width: 100%;
             padding: 12px 16px;
@@ -106,6 +110,22 @@
             75% { transform: translateX(5px); }
         }
 
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #666;
+            font-size: 18px;
+            user-select: none;
+            transition: color 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: #667eea;
+        }
+
         .error-message {
             color: #e74c3c;
             font-size: 12px;
@@ -130,6 +150,7 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
+            user-select: none;
         }
 
         .remember-me input[type="checkbox"] {
@@ -234,13 +255,42 @@
             font-size: 13px;
             color: #999;
         }
+
+        .security-badge {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .security-badge span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .trial-link {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .trial-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .trial-link a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">
             <div class="logo-icon">📋</div>
-            <h1>需求管理系统</h1>
+            <h1>企业级研发管理平台</h1>
             <p>Requirements Management System</p>
         </div>
 
@@ -249,27 +299,32 @@
         <form id="loginForm" novalidate>
             <div class="form-group">
                 <label for="username">用户名</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    placeholder="请输入用户名"
-                    autocomplete="username"
-                    required
-                >
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        placeholder="请输入用户名"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
                 <div class="error-message" id="usernameError"></div>
             </div>
 
             <div class="form-group">
                 <label for="password">密码</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    placeholder="请输入密码"
-                    autocomplete="current-password"
-                    required
-                >
+                <div class="input-wrapper">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="请输入密码"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <span class="password-toggle" id="passwordToggle" title="显示/隐藏密码">👁</span>
+                </div>
                 <div class="password-requirements">
                     密码要求：
                     <ul>
@@ -282,7 +337,7 @@
             <div class="form-options">
                 <label class="remember-me">
                     <input type="checkbox" id="rememberMe" name="rememberMe">
-                    <span>记住密码</span>
+                    <span>记住我</span>
                 </label>
                 <a href="#" class="forgot-password" onclick="showForgotPassword()">忘记密码？</a>
             </div>
@@ -291,6 +346,14 @@
                 登录
             </button>
         </form>
+
+        <div class="trial-link">
+            <p>还没有账号？<a href="#" onclick="showTrialRequest()">免费试用</a></p>
+        </div>
+
+        <div class="security-badge">
+            <span>🔒 企业级安全保护 · HTTPS 加密传输</span>
+        </div>
 
         <div class="footer">
             <p>© 2026 需求管理系统 | 陈先生团队</p>
@@ -314,17 +377,25 @@
         };
 
         // 服务器 API 地址
-        const API_URL = 'http://8.215.93.217:8001';
+        const API_URL = window.location.origin;
 
         // DOM 元素
         const loginForm = document.getElementById('loginForm');
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
+        const passwordToggle = document.getElementById('passwordToggle');
         const rememberMeCheckbox = document.getElementById('rememberMe');
         const loginBtn = document.getElementById('loginBtn');
         const alertDiv = document.getElementById('alert');
         const usernameError = document.getElementById('usernameError');
         const passwordError = document.getElementById('passwordError');
+
+        // 密码显示/隐藏切换
+        passwordToggle.addEventListener('click', () => {
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
+            passwordToggle.textContent = type === 'password' ? '👁' : '🙈';
+        });
 
         // 页面加载时检查记住的密码
         window.addEventListener('DOMContentLoaded', () => {
@@ -444,12 +515,16 @@
             
             try {
                 // 调用真实后端 API
-                const response = await fetch(`${API_URL}/api/login`, {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ 
+                        username, 
+                        password,
+                        rememberMe: rememberMeCheckbox.checked
+                    })
                 });
                 
                 const result = await response.json();
@@ -458,6 +533,7 @@
                     // 登录成功
                     // 保存用户信息到 sessionStorage
                     sessionStorage.setItem('currentUser', JSON.stringify(result.data));
+                    sessionStorage.setItem('authToken', result.data.token);
                     
                     if (rememberMeCheckbox.checked) {
                         localStorage.setItem('savedUsername', username);
@@ -469,9 +545,9 @@
                     
                     showAlert('登录成功！正在跳转...', 'success');
                     
-                    // 跳转到需求管理界面
+                    // 跳转到首页
                     setTimeout(() => {
-                        window.location.href = '/requirements.html';
+                        window.location.href = '/index.html';
                     }, 1000);
                 } else {
                     // 登录失败
@@ -492,6 +568,11 @@
         // 忘记密码
         function showForgotPassword() {
             alert('忘记密码功能开发中...\n请联系管理员重置密码');
+        }
+
+        // 试用申请
+        function showTrialRequest() {
+            alert('试用申请功能开发中...\n即将开放 14 天免费试用');
         }
     </script>
 </body>

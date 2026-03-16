@@ -44,6 +44,7 @@ const BASELINES_FILE = path.join(__dirname, 'baselines.json');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
 const HEADERS_FILE = path.join(__dirname, 'headers.json');
 const PREFIXES_FILE = path.join(__dirname, 'prefixes.json');
+const NAVIGATION_FILE = path.join(__dirname, 'navigation.json');
 
 // MIME 类型映射
 const mimeTypes = {
@@ -83,6 +84,7 @@ let baselines = initializeFile(BASELINES_FILE, []);
 let history = initializeFile(HISTORY_FILE, []);
 let headers = initializeFile(HEADERS_FILE, []);
 let prefixes = initializeFile(PREFIXES_FILE, { requirement: 'REQ', testcase: 'TC' });
+let navigation = initializeFile(NAVIGATION_FILE, []); // 导航树数据
 let idCounter = initializeFile(ID_COUNTER_FILE, { requirement: 0, testcase: 0 });
 
 // 初始化默认用户
@@ -97,6 +99,106 @@ if (users.length === 0) {
         createdAt: new Date().toISOString()
     });
     fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2));
+}
+
+// ===== Session 管理 =====
+const SESSIONS_FILE = path.join(__dirname, 'sessions.json');
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 分钟
+const sessions = initializeFile(SESSIONS_FILE, {});
+
+// 生成 Session Token
+function generateSessionToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// 创建 Session
+function createSession(userId, rememberMe = false) {
+    const token = generateSessionToken();
+    const expires = rememberMe 
+        ? Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 天
+        : Date.now() + SESSION_TIMEOUT; // 30 分钟
+    
+    sessions[token] = {
+        userId,
+        expires,
+        createdAt: new Date().toISOString(),
+        lastActivity: Date.now()
+    };
+    
+    saveSessions();
+    return { token, expires };
+}
+
+// 验证 Session
+function verifySession(token) {
+    if (!token || !sessions[token]) {
+        return null;
+    }
+    
+    const session = sessions[token];
+    if (Date.now() > session.expires) {
+        // Session 过期，删除
+        delete sessions[token];
+        saveSessions();
+        return null;
+    }
+    
+    // 更新最后活动时间
+    session.lastActivity = Date.now();
+    saveSessions();
+    
+    return session;
+}
+
+// 删除 Session（登出）
+function destroySession(token) {
+    if (sessions[token]) {
+        delete sessions[token];
+        saveSessions();
+        return true;
+    }
+    return false;
+}
+
+// 保存 Sessions
+function saveSessions() {
+    // 清理过期 sessions
+    const now = Date.now();
+    Object.keys(sessions).forEach(token => {
+        if (now > sessions[token].expires) {
+            delete sessions[token];
+        }
+    });
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+}
+
+// 获取 Session 中间件
+function getSessionFromHeaders(req) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+    return null;
+}
+
+// 认证中间件
+function requireAuth(req, res) {
+    const token = getSessionFromHeaders(req);
+    const session = verifySession(token);
+    
+    if (!session) {
+        return { error: { success: false, message: '未授权访问', code: 401 } };
+    }
+    
+    const user = users.find(u => u.id === session.userId);
+    if (!user || user.status !== 'active') {
+        destroySession(token);
+        return { error: { success: false, message: '用户不存在或已被禁用', code: 403 } };
+    }
+    
+    // 移除密码
+    const { password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, session };
 }
 
 // 保存数据
@@ -387,7 +489,67 @@ async function handleApiRequest(req, res, fullUrl) {
     }
 
     try {
-        // ===== 用户管理 API =====
+        // ===== 认证 API =====
+        // POST /api/auth/login - 用户登录
+        if (url === '/api/auth/login' && method === 'POST') {
+            const body = await parseBody(req);
+            const { username, password, rememberMe = false } = body;
+
+            if (!username || !password) {
+                return jsonRes(res, 400, { success: false, message: '用户名和密码不能为空' });
+            }
+
+            const user = users.find(u => u.username === username && u.password === hashPassword(password));
+
+            if (user) {
+                if (user.status !== 'active') {
+                    return jsonRes(res, 403, { success: false, message: '账户已被禁用' });
+                }
+                
+                // 创建 Session
+                const { token, expires } = createSession(user.id, rememberMe);
+                
+                const { password: _, ...userWithoutPassword } = user;
+                return jsonRes(res, 200, {
+                    success: true,
+                    message: '登录成功',
+                    data: {
+                        ...userWithoutPassword,
+                        token,
+                        expires
+                    }
+                });
+            } else {
+                return jsonRes(res, 401, { success: false, message: '用户名或密码错误' });
+            }
+        }
+
+        // POST /api/auth/logout - 用户登出
+        if (url === '/api/auth/logout' && method === 'POST') {
+            const token = getSessionFromHeaders(req);
+            if (token) {
+                destroySession(token);
+            }
+            return jsonRes(res, 200, { success: true, message: '登出成功' });
+        }
+
+        // GET /api/auth/me - 获取当前用户信息
+        if (url === '/api/auth/me' && method === 'GET') {
+            const authResult = requireAuth(req, res);
+            if (authResult.error) {
+                return jsonRes(res, authResult.error.code, authResult.error);
+            }
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: authResult.user,
+                session: {
+                    expires: authResult.session.expires,
+                    lastActivity: authResult.session.lastActivity
+                }
+            });
+        }
+
+        // 兼容旧版登录接口
         if (url === '/api/login' && method === 'POST') {
             const body = await parseBody(req);
             const { username, password } = body;
@@ -1385,6 +1547,157 @@ async function handleApiRequest(req, res, fullUrl) {
             headers.splice(headerIndex, 1);
             saveData();
             return jsonRes(res, 200, { success: true, message: '标题已删除' });
+        }
+
+        // ===== 导航树 API =====
+        // 获取导航树数据
+        if (url === '/api/navigation' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '缺少 projectId 参数' });
+            }
+            
+            let filteredNav = navigation.filter(n => n.projectId === projectId);
+            
+            // 计算每个节点的需求数量
+            filteredNav = filteredNav.map(node => {
+                const reqCount = requirements.filter(r => r.headerId === node.id).length;
+                const tcCount = testcases.filter(t => t.headerId === node.id).length;
+                return {
+                    ...node,
+                    requirementCount: reqCount + tcCount
+                };
+            });
+            
+            return jsonRes(res, 200, { success: true, data: filteredNav });
+        }
+
+        // 创建导航节点
+        if (url === '/api/navigation' && method === 'POST') {
+            const body = await parseBody(req);
+            const { projectId, name, parentId, type } = body;
+
+            if (!projectId || !name) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整' });
+            }
+
+            // 计算层级和路径
+            let level = 1;
+            let path = '';
+            if (parentId) {
+                const parentNode = navigation.find(n => n.id === parentId);
+                if (parentNode) {
+                    level = parentNode.level + 1;
+                    // 计算同级节点数量
+                    const siblings = navigation.filter(n => n.parentId === parentId);
+                    path = `${parentNode.path || '1'}.${siblings.length + 1}`;
+                }
+            } else {
+                const rootNodes = navigation.filter(n => !n.parentId && n.projectId === projectId);
+                path = `${rootNodes.length + 1}`;
+            }
+
+            const newNode = {
+                id: generateUniqueId(),
+                projectId,
+                name,
+                type: type || 'collection', // collection 或 header
+                parentId: parentId || null,
+                level,
+                path,
+                order: navigation.filter(n => n.parentId === parentId && n.projectId === projectId).length,
+                requirementCount: 0,
+                createdAt: new Date().toISOString()
+            };
+
+            navigation.push(newNode);
+            saveData();
+
+            return jsonRes(res, 201, { success: true, message: '导航节点创建成功', data: newNode });
+        }
+
+        // 更新导航节点
+        if (url.match(/^\/api\/navigation\/[^\/]+$/) && method === 'PUT') {
+            const nodeId = url.split('/')[3];
+            const body = await parseBody(req);
+            const nodeIndex = navigation.findIndex(n => n.id === nodeId);
+            
+            if (nodeIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '节点不存在' });
+            }
+
+            const { name, type, parentId } = body;
+            if (name !== undefined) navigation[nodeIndex].name = name;
+            if (type !== undefined) navigation[nodeIndex].type = type;
+            if (parentId !== undefined) {
+                navigation[nodeIndex].parentId = parentId;
+                // TODO: 重新计算层级和路径
+            }
+
+            saveData();
+            return jsonRes(res, 200, { success: true, message: '节点更新成功', data: navigation[nodeIndex] });
+        }
+
+        // 删除导航节点
+        if (url.match(/^\/api\/navigation\/[^\/]+$/) && method === 'DELETE') {
+            const nodeId = url.split('/')[3];
+            const nodeIndex = navigation.findIndex(n => n.id === nodeId);
+            
+            if (nodeIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '节点不存在' });
+            }
+
+            // 检查是否有子节点
+            const hasChildren = navigation.some(n => n.parentId === nodeId);
+            if (hasChildren) {
+                return jsonRes(res, 400, { success: false, message: '请先删除或移动子节点' });
+            }
+
+            navigation.splice(nodeIndex, 1);
+            saveData();
+            return jsonRes(res, 200, { success: true, message: '节点已删除' });
+        }
+
+        // 移动导航节点（上移/下移）
+        if (url.match(/^\/api\/navigation\/[^\/]+\/move$/) && method === 'POST') {
+            const nodeId = url.split('/')[3];
+            const body = await parseBody(req);
+            const { direction } = body;
+            
+            const nodeIndex = navigation.findIndex(n => n.id === nodeId);
+            if (nodeIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '节点不存在' });
+            }
+
+            const node = navigation[nodeIndex];
+            const siblings = navigation
+                .map((n, i) => ({ ...n, originalIndex: i }))
+                .filter(n => n.parentId === node.parentId && n.projectId === node.projectId)
+                .sort((a, b) => a.order - b.order);
+            
+            const siblingIndex = siblings.findIndex(s => s.id === nodeId);
+            if (siblingIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '节点不在兄弟姐妹列表中' });
+            }
+
+            let newIndex = siblingIndex;
+            if (direction === 'up' && siblingIndex > 0) {
+                newIndex = siblingIndex - 1;
+            } else if (direction === 'down' && siblingIndex < siblings.length - 1) {
+                newIndex = siblingIndex + 1;
+            }
+
+            if (newIndex !== siblingIndex) {
+                // 交换 order
+                const tempOrder = siblings[siblingIndex].order;
+                navigation[siblings[siblingIndex].originalIndex].order = siblings[newIndex].order;
+                navigation[siblings[newIndex].originalIndex].order = tempOrder;
+                saveData();
+            }
+
+            return jsonRes(res, 200, { success: true, message: '节点移动成功', data: navigation[nodeIndex] });
         }
 
         // ===== 文件上传 API =====

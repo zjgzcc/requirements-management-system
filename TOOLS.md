@@ -13,6 +13,22 @@ Things like:
 - Device nicknames
 - Anything environment-specific
 
+---
+
+## 📦 GitHub 仓库
+
+**需求管理系统**: https://github.com/zjgzcc/requirements-management-system.git
+
+**推送命令**:
+```bash
+cd /home/admin/.openclaw/workspace
+git add -A
+git commit -m "feat: 更新描述"
+git push -u origin master
+```
+
+**认证方式**: 使用 Personal Access Token 或 SSH Key
+
 ## Examples
 
 ```markdown
