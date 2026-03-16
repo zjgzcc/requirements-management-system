@@ -6,6 +6,10 @@
     <title>需求管理 - 需求管理系统</title>
     <!-- Quill 编辑器样式 -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <!-- 导航树组件样式 -->
+    <link href="navigation-tree.css" rel="stylesheet">
+    <!-- 导航树组件脚本 -->
+    <script src="navigation-tree.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -474,6 +478,132 @@
             color: white;
             border-color: #667eea;
         }
+        
+        /* 分类标签样式 */
+        .category-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .category-user { background: #e3f2fd; color: #1976d2; }
+        .category-product { background: #f3e5f5; color: #7b1fa2; }
+        .category-usability { background: #e8f5e9; color: #388e3c; }
+        .category-security { background: #fff3e0; color: #f57c00; }
+        .category-compliance { background: #efebe9; color: #5d4037; }
+        .category-risk { background: #ffebee; color: #c62828; }
+        .category-subsystem { background: #fff8e1; color: #f9a825; }
+        .category-component { background: #e3f2fd; color: #1976d2; }
+        .category-design { background: #e8f5e9; color: #388e3c; }
+        .category-default { background: #f5f5f5; color: #666; }
+        
+        /* 状态徽章样式 */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .status-draft { background: #f5f5f5; color: #666; }
+        .status-review { background: #fff3e0; color: #f57c00; }
+        .status-approved { background: #e3f2fd; color: #1976d2; }
+        .status-completed { background: #e8f5e9; color: #388e3c; }
+        
+        /* 优先级图标样式 */
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .priority-urgent { background: #ffebee; color: #c62828; }
+        .priority-high { background: #fff3e0; color: #e65100; }
+        .priority-medium { background: #fff8e1; color: #f9a825; }
+        .priority-low { background: #e8f5e9; color: #2e7d32; }
+        
+        /* 描述预览样式 */
+        .description-preview {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 500px;
+        }
+        
+        /* 负责人样式 */
+        .assignee-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* 筛选工具栏 */
+        .filter-toolbar input, .filter-toolbar select {
+            font-size: 13px;
+        }
+        
+        /* 操作下拉菜单 */
+        .action-menu {
+            position: relative;
+            display: inline-block;
+        }
+        .action-menu-btn {
+            padding: 4px 8px;
+            background: #f5f5f5;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 120px;
+        }
+        .action-menu-content button {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .action-menu-content button:hover {
+            background: #f5f5f5;
+        }
+        .action-menu.active .action-menu-content {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -495,16 +625,25 @@
     </header>
 
     <div class="main-container">
-        <div class="content-card">
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('requirements')">需求管理</button>
-                <button class="tab" onclick="switchTab('testcases')">用例管理</button>
-                <button class="tab" onclick="switchTab('headers')">标题层级</button>
-                <button class="tab" onclick="switchTab('baselines')">基线版本</button>
-                <button class="tab" onclick="switchTab('trace')">追踪矩阵</button>
+        <div class="content-card" style="padding: 0; overflow: hidden;">
+            <!-- 简化导航：只显示核心功能 -->
+            <div class="tabs" style="margin-bottom: 0; padding: 20px 30px 0;">
+                <button class="tab active" onclick="switchTab('requirements')">📋 需求</button>
+                <button class="tab" onclick="switchTab('testcases')">🧪 用例</button>
+                <button class="tab" onclick="switchTab('trace')">🔗 追踪</button>
+                <button class="tab" onclick="switchTab('baselines')">📌 基线</button>
             </div>
 
-            <div class="toolbar">
+            <!-- 左侧导航树 + 主内容区布局 -->
+            <div class="requirements-layout" id="requirementsLayout" style="display: none;">
+                <!-- 左侧导航树 -->
+                <div class="navigation-tree-container">
+                    <div id="navigationTree"></div>
+                </div>
+                
+                <!-- 主内容区 -->
+                <div class="requirements-main">
+                    <div class="toolbar">
                 <div class="project-select">
                     <label>选择项目：</label>
                     <select id="projectSelect" onchange="loadData()">
@@ -536,14 +675,47 @@
 
             <!-- 需求列表 -->
             <div id="requirementsView">
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <input type="text" id="reqSearch" placeholder="🔍 搜索 ID/标题/描述..." style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px; min-width: 200px;">
+                    <select id="filterCategory" onchange="filterRequirements()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="">全部分类</option>
+                        <option value="用户需求">👤 用户需求</option>
+                        <option value="产品需求">🏭 产品需求</option>
+                        <option value="可用性需求">🎯 可用性需求</option>
+                        <option value="网络安全">🔒 网络安全</option>
+                        <option value="法规标准">📜 法规标准</option>
+                        <option value="风险管理">⚠️ 风险管理</option>
+                        <option value="子系统">⚙️ 子系统</option>
+                        <option value="部件">🔧 部件</option>
+                        <option value="详细设计">📐 详细设计</option>
+                    </select>
+                    <select id="filterStatus" onchange="filterRequirements()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="">全部状态</option>
+                        <option value="draft">📝 草稿</option>
+                        <option value="review">👀 评审中</option>
+                        <option value="approved">✅ 已批准</option>
+                        <option value="completed">✔️ 已完成</option>
+                    </select>
+                    <select id="filterPriority" onchange="filterRequirements()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="">全部优先级</option>
+                        <option value="urgent">🔴 紧急</option>
+                        <option value="high">🟠 高</option>
+                        <option value="medium">🟡 中</option>
+                        <option value="low">🟢 低</option>
+                    </select>
+                </div>
                 <div class="table-container">
                     <table id="requirementsTable">
                         <thead>
                             <tr>
                                 <th style="width: 50px;"><input type="checkbox" id="selectAllReq" onchange="toggleSelectAllReq()"></th>
-                                <th style="width: 100px;">ID</th>
-                                <th>标题/需求</th>
-                                <th style="width: 200px;">验收标准</th>
+                                <th style="width: 90px;">ID</th>
+                                <th>标题</th>
+                                <th style="width: 120px;">分类</th>
+                                <th style="width: 100px;">状态</th>
+                                <th style="width: 100px;">优先级</th>
+                                <th style="width: 100px;">负责人</th>
                                 <th style="width: 180px;">操作</th>
                             </tr>
                         </thead>
@@ -709,6 +881,50 @@
                 <button class="close-btn" onclick="closeModal('requirementModal')">×</button>
             </div>
             <div class="modal-body">
+                <div class="form-group">
+                    <label>标题 *</label>
+                    <input type="text" id="reqTitle" placeholder="请输入需求标题">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>所属分类</label>
+                        <select id="reqCategory">
+                            <option value="用户需求">👤 用户需求</option>
+                            <option value="产品需求">🏭 产品需求</option>
+                            <option value="可用性需求">🎯 可用性需求</option>
+                            <option value="网络安全">🔒 网络安全</option>
+                            <option value="法规标准">📜 法规标准</option>
+                            <option value="风险管理">⚠️ 风险管理</option>
+                            <option value="子系统">⚙️ 子系统</option>
+                            <option value="部件">🔧 部件</option>
+                            <option value="详细设计">📐 详细设计</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>状态</label>
+                        <select id="reqStatus">
+                            <option value="draft">📝 草稿</option>
+                            <option value="review">👀 评审中</option>
+                            <option value="approved">✅ 已批准</option>
+                            <option value="completed">✔️ 已完成</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>优先级</label>
+                        <select id="reqPriority">
+                            <option value="urgent">🔴 紧急</option>
+                            <option value="high">🟠 高</option>
+                            <option value="medium" selected>🟡 中</option>
+                            <option value="low">🟢 低</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>负责人</label>
+                        <input type="text" id="reqAssignee" placeholder="请输入负责人姓名">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>所属标题（可选）</label>
                     <select id="reqHeader">
@@ -1013,6 +1229,7 @@
         let currentUser = null;
         let currentTab = 'requirements';
         let currentProjectId = '';
+        let currentSelectedNodeId = null; // 当前选中的导航树节点 ID
         let requirementsData = [];
         let testcasesData = [];
         let headersData = [];
@@ -1217,6 +1434,45 @@
             await loadDefaultPrefixes();
         });
 
+        // 初始化导航树
+        async function initNavigationTreeUI() {
+            if (!currentProjectId) return;
+            
+            try {
+                await initNavigationTree(currentProjectId, 'navigationTree', {
+                    onNodeSelect: (node) => {
+                        console.log('选中节点:', node);
+                        // 根据选中的节点过滤需求列表
+                        filterByNavigationNode(node);
+                    },
+                    onDataChange: () => {
+                        console.log('导航树数据变化');
+                        // 刷新需求列表
+                        if (currentTab === 'requirements') {
+                            loadRequirements();
+                        } else if (currentTab === 'testcases') {
+                            loadTestcases();
+                        }
+                    }
+                });
+                
+                // 显示布局
+                document.getElementById('requirementsLayout').style.display = 'flex';
+            } catch (error) {
+                console.error('初始化导航树失败:', error);
+            }
+        }
+
+        // 根据导航树节点过滤
+        function filterByNavigationNode(node) {
+            currentSelectedNodeId = node?.id || null;
+            if (currentTab === 'requirements') {
+                loadRequirements();
+            } else if (currentTab === 'testcases') {
+                loadTestcases();
+            }
+        }
+
         async function loadDefaultPrefixes() {
             try {
                 const response = await fetch(`${API_BASE}/prefixes`);
@@ -1271,6 +1527,9 @@
             selectedReqs.clear();
             selectedTcs.clear();
             updateBatchActions();
+
+            // 初始化导航树
+            await initNavigationTreeUI();
 
             if (currentTab === 'requirements') {
                 document.getElementById('requirementsView').style.display = 'block';
@@ -1351,6 +1610,9 @@
             }
         }
 
+        // 全局变量用于存储过滤后的数据
+        let filteredRequirementsData = [];
+        
         async function loadRequirements() {
             if (!currentProjectId) return;
             try {
@@ -1359,36 +1621,252 @@
                 const tbody = document.getElementById('requirementsBody');
                 tbody.innerHTML = '';
                 requirementsData = data.success ? data.data : [];
-
-                if (requirementsData.length > 0) {
-                    requirementsData.forEach(req => {
-                        const header = headersData.find(h => h.id === req.headerId);
-                        const tr = document.createElement('tr');
-                        tr.className = header ? 'header-row' : '';
-                        tr.innerHTML = `
-                            <td><input type="checkbox" class="item-checkbox" data-id="${req.id}" onchange="updateSelectedReqs()"></td>
-                            <td><strong>${req.reqId}</strong></td>
-                            <td class="${header ? 'header-level-' + header.level : ''}">
-                                ${header ? '<span class="header-indicator">📑</span> ' : ''}${req.description || ''}
-                            </td>
-                            <td>${req.acceptanceCriteria || '-'}</td>
-                            <td>
-                                <div class="table-actions">
-                                    <button class="btn-primary btn-sm btn-icon" onclick="linkTrace('${req.id}')" title="关联用例">🔗</button>
-                                    <button class="btn-secondary btn-sm" onclick="viewHistory('requirement', '${req.id}')">📜</button>
-                                    <button class="btn-danger btn-sm" onclick="deleteRequirement('${req.id}')">删除</button>
-                                </div>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                
+                // 根据导航树节点过滤
+                if (currentSelectedNodeId) {
+                    filteredRequirementsData = requirementsData.filter(req => req.headerId === currentSelectedNodeId);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>暂无需求，点击"+ 新建需求"添加</p></td></tr>';
+                    filteredRequirementsData = [...requirementsData];
+                }
+
+                if (filteredRequirementsData.length > 0) {
+                    renderRequirementsTable(filteredRequirementsData);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>暂无需求，点击"+ 新建需求"添加</p></td></tr>';
                 }
             } catch (error) {
                 console.error('加载需求失败:', error);
                 showToast('加载需求失败', 'error');
             }
+        }
+        
+        // 渲染需求表格
+        function renderRequirementsTable(data) {
+            const tbody = document.getElementById('requirementsBody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>暂无匹配的需求</p></td></tr>';
+                return;
+            }
+            
+            data.forEach(req => {
+                const header = headersData.find(h => h.id === req.headerId);
+                const category = req.category || '默认';
+                const status = req.status || 'draft';
+                const priority = req.priority || 'medium';
+                const assignee = req.assignee || '未分配';
+                
+                // 获取分类样式
+                const categoryClass = getCategoryClass(category);
+                const categoryIcon = getCategoryIcon(category);
+                
+                // 获取状态样式
+                const statusClass = getStatusClass(status);
+                const statusText = getStatusText(status);
+                
+                // 获取优先级样式
+                const priorityClass = getPriorityClass(priority);
+                const priorityText = getPriorityText(priority);
+                const priorityIcon = getPriorityIcon(priority);
+                
+                // 生成描述预览（去除 HTML 标签）
+                const descPreview = req.description ? req.description.replace(/<[^>]*>/g, '').substring(0, 80) : '';
+                
+                const tr = document.createElement('tr');
+                tr.className = header ? 'header-row' : '';
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="item-checkbox" data-id="${req.id}" onchange="updateSelectedReqs()"></td>
+                    <td><strong>${req.reqId || '-'}</strong></td>
+                    <td>
+                        <div style="font-weight: 500; color: #333;">${req.title || req.reqId || '未命名'}</div>
+                        ${descPreview ? `<div class="description-preview">${descPreview}${descPreview.length >= 80 ? '...' : ''}</div>` : ''}
+                    </td>
+                    <td><span class="category-tag ${categoryClass}">${categoryIcon} ${category}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td><span class="priority-badge ${priorityClass}">${priorityIcon} ${priorityText}</span></td>
+                    <td>
+                        <div class="assignee-cell">
+                            <div class="assignee-avatar">${assignee.charAt(0).toUpperCase()}</div>
+                            <span style="font-size: 13px;">${assignee}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="action-menu">
+                            <button class="action-menu-btn" onclick="toggleActionMenu(this)">⋮</button>
+                            <div class="action-menu-content">
+                                <button onclick="editRequirement('${req.id}')">✏️ 编辑</button>
+                                <button onclick="linkTrace('${req.id}')">🔗 关联用例</button>
+                                <button onclick="viewHistory('requirement', '${req.id}')">📜 历史</button>
+                                <button onclick="deleteRequirement('${req.id}')" style="color: #e74c3c;">🗑️ 删除</button>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 分类样式映射
+        function getCategoryClass(category) {
+            const map = {
+                '用户需求': 'category-user',
+                '产品需求': 'category-product',
+                '可用性需求': 'category-usability',
+                '网络安全': 'category-security',
+                '法规标准': 'category-compliance',
+                '风险管理': 'category-risk',
+                '子系统': 'category-subsystem',
+                '部件': 'category-component',
+                '详细设计': 'category-design'
+            };
+            return map[category] || 'category-default';
+        }
+        
+        function getCategoryIcon(category) {
+            const map = {
+                '用户需求': '👤',
+                '产品需求': '🏭',
+                '可用性需求': '🎯',
+                '网络安全': '🔒',
+                '法规标准': '📜',
+                '风险管理': '⚠️',
+                '子系统': '⚙️',
+                '部件': '🔧',
+                '详细设计': '📐'
+            };
+            return map[category] || '📋';
+        }
+        
+        // 状态样式映射
+        function getStatusClass(status) {
+            const map = {
+                'draft': 'status-draft',
+                'review': 'status-review',
+                'approved': 'status-approved',
+                'completed': 'status-completed'
+            };
+            return map[status] || 'status-draft';
+        }
+        
+        function getStatusText(status) {
+            const map = {
+                'draft': '📝 草稿',
+                'review': '👀 评审中',
+                'approved': '✅ 已批准',
+                'completed': '✔️ 已完成'
+            };
+            return map[status] || '📝 草稿';
+        }
+        
+        // 优先级样式映射
+        function getPriorityClass(priority) {
+            const map = {
+                'urgent': 'priority-urgent',
+                'high': 'priority-high',
+                'medium': 'priority-medium',
+                'low': 'priority-low'
+            };
+            return map[priority] || 'priority-medium';
+        }
+        
+        function getPriorityText(priority) {
+            const map = {
+                'urgent': '紧急',
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return map[priority] || '中';
+        }
+        
+        function getPriorityIcon(priority) {
+            const map = {
+                'urgent': '🔴',
+                'high': '🟠',
+                'medium': '🟡',
+                'low': '🟢'
+            };
+            return map[priority] || '🟡';
+        }
+        
+        // 筛选功能
+        function filterRequirements() {
+            const search = document.getElementById('reqSearch').value.toLowerCase();
+            const category = document.getElementById('filterCategory').value;
+            const status = document.getElementById('filterStatus').value;
+            const priority = document.getElementById('filterPriority').value;
+            
+            filteredRequirementsData = requirementsData.filter(req => {
+                const matchSearch = !search || 
+                    (req.reqId && req.reqId.toLowerCase().includes(search)) ||
+                    (req.title && req.title.toLowerCase().includes(search)) ||
+                    (req.description && req.description.toLowerCase().includes(search));
+                
+                const matchCategory = !category || req.category === category;
+                const matchStatus = !status || req.status === status;
+                const matchPriority = !priority || req.priority === priority;
+                
+                return matchSearch && matchCategory && matchStatus && matchPriority;
+            });
+            
+            renderRequirementsTable(filteredRequirementsData);
+        }
+        
+        // 搜索框实时搜索
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('reqSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', filterRequirements);
+            }
+        });
+        
+        // 切换操作菜单
+        function toggleActionMenu(btn) {
+            const menu = btn.parentElement;
+            const isActive = menu.classList.contains('active');
+            
+            // 关闭所有菜单
+            document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
+            
+            // 如果之前没有打开，则打开当前菜单
+            if (!isActive) {
+                menu.classList.add('active');
+            }
+        }
+        
+        // 点击其他地方关闭菜单
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.action-menu')) {
+                document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
+            }
+        });
+        
+        // 编辑需求函数
+        function editRequirement(reqId) {
+            const req = requirementsData.find(r => r.id === reqId);
+            if (!req) return;
+            
+            // 关闭菜单
+            document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
+            
+            // 填充模态框数据
+            document.getElementById('requirementModal').querySelector('h2').textContent = '编辑需求';
+            document.getElementById('reqHeader').value = req.headerId || '';
+            document.getElementById('reqPrefix').value = req.prefix || 'REQ';
+            document.getElementById('reqDescription').value = req.description || '';
+            document.getElementById('reqAcceptance').value = req.acceptanceCriteria || '';
+            
+            // 设置编辑器内容
+            if (reqEditor && req.description) {
+                reqEditor.root.innerHTML = req.description;
+            }
+            
+            // 存储编辑 ID
+            reqEditor.dataset.editId = reqId;
+            
+            // 显示模态框
+            document.getElementById('requirementModal').classList.add('active');
         }
 
         async function loadTestcases() {
@@ -1399,9 +1877,17 @@
                 const tbody = document.getElementById('testcasesBody');
                 tbody.innerHTML = '';
                 testcasesData = data.success ? data.data : [];
+                
+                // 根据导航树节点过滤
+                let filteredTestcasesData;
+                if (currentSelectedNodeId) {
+                    filteredTestcasesData = testcasesData.filter(tc => tc.headerId === currentSelectedNodeId);
+                } else {
+                    filteredTestcasesData = [...testcasesData];
+                }
 
-                if (testcasesData.length > 0) {
-                    testcasesData.forEach(tc => {
+                if (filteredTestcasesData.length > 0) {
+                    filteredTestcasesData.forEach(tc => {
                         const header = headersData.find(h => h.id === tc.headerId);
                         const tr = document.createElement('tr');
                         tr.className = header ? 'header-row' : '';
@@ -2014,6 +2500,15 @@
             reqAttachments = [];
             renderAttachments(reqAttachments, 'reqAttachments');
             if (reqEditor) reqEditor.root.innerHTML = '';
+            
+            // 如果选中了导航树节点，自动选择该标题
+            if (currentSelectedNodeId && window.navTree) {
+                const selectedNode = window.navTree.tree.nodes.find(n => n.id === currentSelectedNodeId);
+                if (selectedNode) {
+                    document.getElementById('reqHeader').value = currentSelectedNodeId;
+                }
+            }
+            
             document.getElementById('requirementModal').classList.add('active');
             setTimeout(() => { if (reqEditor) reqEditor.focus(); }, 100);
         }
@@ -2054,6 +2549,7 @@
         }
 
         async function createRequirement() {
+            const editId = reqEditor.dataset.editId;
             const prefix = document.getElementById('reqPrefix').value.trim();
             const richContent = reqEditor ? reqEditor.root.innerHTML : '';
             const description = reqEditor ? reqEditor.getText().trim().substring(0, 200) : '';
@@ -2061,33 +2557,64 @@
             const headerId = document.getElementById('reqHeader').value || null;
             const savePrefix = document.getElementById('saveReqPrefix').checked;
             
+            // 获取新增字段
+            const title = document.getElementById('reqTitle') ? document.getElementById('reqTitle').value.trim() : '';
+            const category = document.getElementById('reqCategory') ? document.getElementById('reqCategory').value : '';
+            const status = document.getElementById('reqStatus') ? document.getElementById('reqStatus').value : 'draft';
+            const priority = document.getElementById('reqPriority') ? document.getElementById('reqPriority').value : 'medium';
+            const assignee = document.getElementById('reqAssignee') ? document.getElementById('reqAssignee').value.trim() : '';
+            
             if (!richContent || richContent === '<p><br></p>') { showToast('请输入需求描述', 'error'); return; }
             
             try {
-                const response = await fetch(`${API_BASE}/requirements`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        projectId: currentProjectId, 
-                        prefix: prefix || undefined, 
-                        description,
-                        richContent,
-                        acceptanceCriteria,
-                        headerId,
-                        attachments: reqAttachments,
-                        savePrefix
-                    })
-                });
+                const payload = { 
+                    projectId: currentProjectId, 
+                    prefix: prefix || undefined, 
+                    description,
+                    richContent,
+                    acceptanceCriteria,
+                    headerId,
+                    attachments: reqAttachments,
+                    savePrefix
+                };
+                
+                // 添加新字段
+                if (title) payload.title = title;
+                if (category) payload.category = category;
+                if (status) payload.status = status;
+                if (priority) payload.priority = priority;
+                if (assignee) payload.assignee = assignee;
+                
+                let response;
+                if (editId) {
+                    // 编辑模式
+                    response = await fetch(`${API_BASE}/requirements/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // 创建模式
+                    response = await fetch(`${API_BASE}/requirements`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                
                 const data = await response.json();
                 if (data.success) {
-                    showToast('需求创建成功', 'success');
+                    showToast(editId ? '需求更新成功' : '需求创建成功', 'success');
                     closeModal('requirementModal');
                     reqAttachments = [];
-                    if (reqEditor) reqEditor.root.innerHTML = '';
+                    if (reqEditor) {
+                        reqEditor.root.innerHTML = '';
+                        delete reqEditor.dataset.editId;
+                    }
                     if (savePrefix) await loadDefaultPrefixes();
                     await loadRequirements();
                 } else { showToast(data.message, 'error'); }
-            } catch (error) { showToast('创建需求失败', 'error'); }
+            } catch (error) { showToast(editId ? '更新需求失败' : '创建需求失败', 'error'); }
         }
 
         async function createTestcase() {
@@ -2983,6 +3510,11 @@
             }
         }
     </script>
+
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- 批量关联模态框 -->
     <div class="modal-overlay" id="batchModal">

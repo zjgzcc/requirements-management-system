@@ -522,6 +522,133 @@
             font-family: 'Consolas', 'Monaco', monospace;
             overflow-x: auto;
         }
+        
+        /* 分类标签样式 */
+        .tc-type-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .type-functional { background: #e3f2fd; color: #1976d2; }
+        .type-performance { background: #f3e5f5; color: #7b1fa2; }
+        .type-security { background: #fff3e0; color: #f57c00; }
+        .type-usability { background: #e8f5e9; color: #388e3c; }
+        .type-ui { background: #ffebee; color: #c62828; }
+        .type-default { background: #f5f5f5; color: #666; }
+        
+        /* 执行状态徽章样式 */
+        .tc-status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .status-pass { background: #e8f5e9; color: #2e7d32; }
+        .status-fail { background: #ffebee; color: #c62828; }
+        .status-not_executed { background: #f5f5f5; color: #666; }
+        .status-blocked { background: #fff3e0; color: #f57c00; }
+        .status-skipped { background: #e3f2fd; color: #1976d2; }
+        
+        /* 优先级样式 */
+        .tc-priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .priority-urgent { background: #ffebee; color: #c62828; }
+        .priority-high { background: #fff3e0; color: #e65100; }
+        .priority-medium { background: #fff8e1; color: #f9a825; }
+        .priority-low { background: #e8f5e9; color: #2e7d32; }
+        
+        /* 描述预览样式 */
+        .tc-preview {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 400px;
+        }
+        
+        /* 负责人样式 */
+        .tc-assignee-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tc-assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* 最后执行徽章 */
+        .last-executed-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        /* 操作下拉菜单 */
+        .tc-action-menu {
+            position: relative;
+            display: inline-block;
+        }
+        .tc-action-menu-btn {
+            padding: 4px 8px;
+            background: #f5f5f5;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .tc-action-menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 120px;
+        }
+        .tc-action-menu-content button {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .tc-action-menu-content button:hover {
+            background: #f5f5f5;
+        }
+        .tc-action-menu.active .tc-action-menu-content {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -578,16 +705,39 @@
 
             <!-- 用例列表 -->
             <div id="testcasesView">
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <input type="text" id="tcSearch" placeholder="🔍 搜索 ID/标题/步骤..." style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px; min-width: 200px;">
+                    <select id="filterTcType" onchange="filterTestcases()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="">全部类型</option>
+                        <option value="功能测试">🧪 功能测试</option>
+                        <option value="性能测试">⚡ 性能测试</option>
+                        <option value="安全测试">🔒 安全测试</option>
+                        <option value="可用性测试">🎯 可用性测试</option>
+                        <option value="界面测试">📱 界面测试</option>
+                    </select>
+                    <select id="filterTcStatus" onchange="filterTestcases()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="">全部状态</option>
+                        <option value="pass">✅ 通过</option>
+                        <option value="fail">❌ 失败</option>
+                        <option value="not_executed">⏸️ 未执行</option>
+                        <option value="blocked">🚫 阻塞</option>
+                        <option value="skipped">⏭️ 跳过</option>
+                    </select>
+                </div>
                 <div class="table-container">
                     <table id="testcasesTable">
                         <thead>
                             <tr>
                                 <th style="width: 50px;"><input type="checkbox" id="selectAllTc" onchange="toggleSelectAllTc()"></th>
-                                <th style="width: 100px;">ID</th>
-                                <th>操作步骤</th>
-                                <th style="width: 250px;">预期结果</th>
-                                <th style="width: 180px;">创建时间</th>
-                                <th style="width: 200px;">操作</th>
+                                <th style="width: 90px;">ID</th>
+                                <th>标题</th>
+                                <th style="width: 100px;">类型</th>
+                                <th style="width: 100px;">状态</th>
+                                <th style="width: 100px;">优先级</th>
+                                <th style="width: 100px;">负责人</th>
+                                <th style="width: 120px;">最后执行</th>
+                                <th style="width: 150px;">操作</th>
                             </tr>
                         </thead>
                         <tbody id="testcasesBody"></tbody>
@@ -666,6 +816,47 @@
                 <button class="close-btn" onclick="closeModal('testcaseModal')">×</button>
             </div>
             <div class="modal-body">
+                <div class="form-group">
+                    <label>标题 *</label>
+                    <input type="text" id="tcTitle" placeholder="请输入用例标题">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>用例类型</label>
+                        <select id="tcType">
+                            <option value="功能测试">🧪 功能测试</option>
+                            <option value="性能测试">⚡ 性能测试</option>
+                            <option value="安全测试">🔒 安全测试</option>
+                            <option value="可用性测试">🎯 可用性测试</option>
+                            <option value="界面测试">📱 界面测试</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>执行状态</label>
+                        <select id="tcStatus">
+                            <option value="not_executed">⏸️ 未执行</option>
+                            <option value="pass">✅ 通过</option>
+                            <option value="fail">❌ 失败</option>
+                            <option value="blocked">🚫 阻塞</option>
+                            <option value="skipped">⏭️ 跳过</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>优先级</label>
+                        <select id="tcPriority">
+                            <option value="urgent">🔴 紧急</option>
+                            <option value="high">🟠 高</option>
+                            <option value="medium" selected>🟡 中</option>
+                            <option value="low">🟢 低</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>负责人</label>
+                        <input type="text" id="tcAssignee" placeholder="请输入负责人姓名">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>所属标题（可选）</label>
                     <select id="tcHeader">
@@ -1030,6 +1221,7 @@
 
                 if (tcData.success) {
                     testcasesData = tcData.data;
+                    filteredTestcasesData = [...testcasesData];
                     renderTestcases();
                 }
 
@@ -1044,33 +1236,210 @@
         }
 
         // 渲染用例列表
+        // 全局变量用于存储过滤后的数据
+        let filteredTestcasesData = [];
+        
         function renderTestcases() {
             const tbody = document.getElementById('testcasesBody');
             
-            if (testcasesData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">暂无用例，点击右上角"+ 新建用例"开始创建</td></tr>';
+            if (filteredTestcasesData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: #999;">暂无匹配的用例</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = testcasesData.map(tc => {
+            tbody.innerHTML = filteredTestcasesData.map(tc => {
                 const stepsText = tc.richContent ? stripHtml(tc.richContent) : (tc.steps || '');
-                const truncatedSteps = stepsText.length > 100 ? stepsText.substring(0, 100) + '...' : stepsText;
+                const truncatedSteps = stepsText.length > 80 ? stepsText.substring(0, 80) + '...' : stepsText;
+                
+                const type = tc.type || '功能测试';
+                const status = tc.status || 'not_executed';
+                const priority = tc.priority || 'medium';
+                const assignee = tc.assignee || '未分配';
+                const lastExecuted = tc.lastExecuted ? formatDate(tc.lastExecuted) : '-';
+                
+                const typeClass = getTcTypeClass(type);
+                const typeIcon = getTcTypeIcon(type);
+                const statusClass = getTcStatusClass(status);
+                const statusText = getTcStatusText(status);
+                const priorityClass = getTcPriorityClass(priority);
+                const priorityText = getTcPriorityText(priority);
+                const priorityIcon = getTcPriorityIcon(priority);
                 
                 return `
                     <tr>
                         <td><input type="checkbox" class="tc-checkbox" value="${tc.id}" onchange="updateSelectedCount()"></td>
-                        <td><strong>${tc.tcId}</strong></td>
-                        <td>${truncatedSteps}</td>
-                        <td>${tc.expectedResult || '-'}</td>
-                        <td>${formatDate(tc.createdAt)}</td>
+                        <td><strong>${tc.tcId || '-'}</strong></td>
                         <td>
-                            <button class="btn-primary btn-sm" onclick="editTestcase('${tc.id}')">编辑</button>
-                            <button class="btn-secondary btn-sm" onclick="viewHistory('${tc.id}')">历史</button>
-                            <button class="btn-danger btn-sm" onclick="deleteTestcase('${tc.id}')">删除</button>
+                            <div style="font-weight: 500; color: #333;">${tc.title || tc.tcId || '未命名'}</div>
+                            ${truncatedSteps ? `<div class="tc-preview">${truncatedSteps}</div>` : ''}
+                        </td>
+                        <td><span class="tc-type-tag ${typeClass}">${typeIcon} ${type}</span></td>
+                        <td><span class="tc-status-badge ${statusClass}">${statusText}</span></td>
+                        <td><span class="tc-priority-badge ${priorityClass}">${priorityIcon} ${priorityText}</span></td>
+                        <td>
+                            <div class="tc-assignee-cell">
+                                <div class="tc-assignee-avatar">${assignee.charAt(0).toUpperCase()}</div>
+                                <span style="font-size: 13px;">${assignee}</span>
+                            </div>
+                        </td>
+                        <td><span class="last-executed-badge">${lastExecuted}</span></td>
+                        <td>
+                            <div class="tc-action-menu">
+                                <button class="tc-action-menu-btn" onclick="toggleTcActionMenu(this)">⋮</button>
+                                <div class="tc-action-menu-content">
+                                    <button onclick="editTestcase('${tc.id}')">✏️ 编辑</button>
+                                    <button onclick="executeTestcase('${tc.id}')">▶️ 执行</button>
+                                    <button onclick="viewHistory('${tc.id}')">📜 历史</button>
+                                    <button onclick="deleteTestcase('${tc.id}')" style="color: #e74c3c;">🗑️ 删除</button>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+        
+        // 类型样式映射
+        function getTcTypeClass(type) {
+            const map = {
+                '功能测试': 'type-functional',
+                '性能测试': 'type-performance',
+                '安全测试': 'type-security',
+                '可用性测试': 'type-usability',
+                '界面测试': 'type-ui'
+            };
+            return map[type] || 'type-default';
+        }
+        
+        function getTcTypeIcon(type) {
+            const map = {
+                '功能测试': '🧪',
+                '性能测试': '⚡',
+                '安全测试': '🔒',
+                '可用性测试': '🎯',
+                '界面测试': '📱'
+            };
+            return map[type] || '📋';
+        }
+        
+        // 状态样式映射
+        function getTcStatusClass(status) {
+            const map = {
+                'pass': 'status-pass',
+                'fail': 'status-fail',
+                'not_executed': 'status-not_executed',
+                'blocked': 'status-blocked',
+                'skipped': 'status-skipped'
+            };
+            return map[status] || 'status-not_executed';
+        }
+        
+        function getTcStatusText(status) {
+            const map = {
+                'pass': '✅ 通过',
+                'fail': '❌ 失败',
+                'not_executed': '⏸️ 未执行',
+                'blocked': '🚫 阻塞',
+                'skipped': '⏭️ 跳过'
+            };
+            return map[status] || '⏸️ 未执行';
+        }
+        
+        // 优先级样式映射
+        function getTcPriorityClass(priority) {
+            const map = {
+                'urgent': 'priority-urgent',
+                'high': 'priority-high',
+                'medium': 'priority-medium',
+                'low': 'priority-low'
+            };
+            return map[priority] || 'priority-medium';
+        }
+        
+        function getTcPriorityText(priority) {
+            const map = {
+                'urgent': '紧急',
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return map[priority] || '中';
+        }
+        
+        function getTcPriorityIcon(priority) {
+            const map = {
+                'urgent': '🔴',
+                'high': '🟠',
+                'medium': '🟡',
+                'low': '🟢'
+            };
+            return map[priority] || '🟡';
+        }
+        
+        // 筛选功能
+        function filterTestcases() {
+            const search = document.getElementById('tcSearch').value.toLowerCase();
+            const type = document.getElementById('filterTcType').value;
+            const status = document.getElementById('filterTcStatus').value;
+            
+            filteredTestcasesData = testcasesData.filter(tc => {
+                const matchSearch = !search || 
+                    (tc.tcId && tc.tcId.toLowerCase().includes(search)) ||
+                    (tc.title && tc.title.toLowerCase().includes(search)) ||
+                    (tc.steps && tc.steps.toLowerCase().includes(search));
+                
+                const matchType = !type || tc.type === type;
+                const matchStatus = !status || tc.status === status;
+                
+                return matchSearch && matchType && matchStatus;
+            });
+            
+            renderTestcases();
+        }
+        
+        // 搜索框实时搜索
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('tcSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', filterTestcases);
+            }
+        });
+        
+        // 切换操作菜单
+        function toggleTcActionMenu(btn) {
+            const menu = btn.parentElement;
+            const isActive = menu.classList.contains('active');
+            
+            // 关闭所有菜单
+            document.querySelectorAll('.tc-action-menu').forEach(m => m.classList.remove('active'));
+            
+            // 如果之前没有打开，则打开当前菜单
+            if (!isActive) {
+                menu.classList.add('active');
+            }
+        }
+        
+        // 点击其他地方关闭菜单
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.tc-action-menu')) {
+                document.querySelectorAll('.tc-action-menu').forEach(m => m.classList.remove('active'));
+            }
+        });
+        
+        // 执行用例函数
+        function executeTestcase(tcId) {
+            const tc = testcasesData.find(t => t.id === tcId);
+            if (!tc) return;
+            
+            // 关闭菜单
+            document.querySelectorAll('.tc-action-menu').forEach(m => m.classList.remove('active'));
+            
+            // 更新状态为通过（简化实现）
+            tc.status = 'pass';
+            tc.lastExecuted = new Date().toISOString();
+            
+            showToast('用例执行成功', 'success');
+            renderTestcases();
         }
 
         // 更新标题选择器
@@ -1086,6 +1455,11 @@
             document.getElementById('testcaseModalTitle').textContent = testcase ? '编辑用例' : '新建用例';
             
             if (testcase) {
+                document.getElementById('tcTitle').value = testcase.title || testcase.tcId || '';
+                document.getElementById('tcType').value = testcase.type || '功能测试';
+                document.getElementById('tcStatus').value = testcase.status || 'not_executed';
+                document.getElementById('tcPriority').value = testcase.priority || 'medium';
+                document.getElementById('tcAssignee').value = testcase.assignee || '';
                 document.getElementById('tcPrefix').value = testcase.prefix || 'TC';
                 document.getElementById('tcHeader').value = testcase.headerId || '';
                 if (tcEditor && testcase.richContent) {
@@ -1095,6 +1469,11 @@
                 tcAttachments = testcase.attachments || [];
                 renderAttachments(tcAttachments, 'tcAttachments');
             } else {
+                document.getElementById('tcTitle').value = '';
+                document.getElementById('tcType').value = '功能测试';
+                document.getElementById('tcStatus').value = 'not_executed';
+                document.getElementById('tcPriority').value = 'medium';
+                document.getElementById('tcAssignee').value = '';
                 document.getElementById('tcPrefix').value = 'TC';
                 document.getElementById('tcHeader').value = '';
                 if (tcEditor) {
@@ -1123,6 +1502,13 @@
             const richContent = tcEditor.root.innerHTML;
             const expectedResult = document.getElementById('tcResult').value.trim();
             const savePrefix = document.getElementById('saveTcPrefix').checked;
+            
+            // 获取新增字段
+            const title = document.getElementById('tcTitle') ? document.getElementById('tcTitle').value.trim() : '';
+            const type = document.getElementById('tcType') ? document.getElementById('tcType').value : '功能测试';
+            const status = document.getElementById('tcStatus') ? document.getElementById('tcStatus').value : 'not_executed';
+            const priority = document.getElementById('tcPriority') ? document.getElementById('tcPriority').value : 'medium';
+            const assignee = document.getElementById('tcAssignee') ? document.getElementById('tcAssignee').value.trim() : '';
 
             if (!richContent || richContent === '<p><br></p>') {
                 showToast('请输入操作步骤', 'error');
@@ -1138,6 +1524,13 @@
                 attachments: tcAttachments,
                 savePrefix
             };
+            
+            // 添加新字段
+            if (title) payload.title = title;
+            if (type) payload.type = type;
+            if (status) payload.status = status;
+            if (priority) payload.priority = priority;
+            if (assignee) payload.assignee = assignee;
 
             try {
                 const url = editingTestcaseId 
