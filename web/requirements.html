@@ -1419,11 +1419,41 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             const userStr = sessionStorage.getItem('currentUser');
-            if (!userStr) {
+            const token = sessionStorage.getItem('authToken');
+            
+            if (!userStr || !token) {
                 window.location.href = '/login.html';
                 return;
             }
-            currentUser = JSON.parse(userStr);
+            
+            // 验证 Token 是否有效
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    // Token 无效，清除本地存储并跳转到登录页
+                    sessionStorage.clear();
+                    localStorage.removeItem('savedUsername');
+                    localStorage.removeItem('savedPassword');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                // Token 有效，更新用户信息
+                currentUser = result.data;
+                sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+            } catch (error) {
+                console.error('认证检查失败:', error);
+                window.location.href = '/login.html';
+                return;
+            }
+            
             document.getElementById('currentUsername').textContent = currentUser.username;
             document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
             
@@ -3293,8 +3323,26 @@
             window.location.href = '/login.html';
         }
 
-        function logout() {
+        async function logout() {
+            const token = sessionStorage.getItem('authToken');
+            
+            // 调用登出 API
+            if (token) {
+                try {
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } catch (error) {
+                    console.error('登出 API 调用失败:', error);
+                }
+            }
+            
+            // 清除本地存储
             sessionStorage.removeItem('currentUser');
+            sessionStorage.removeItem('authToken');
             localStorage.removeItem('savedUsername');
             localStorage.removeItem('savedPassword');
             window.location.href = '/login.html';
