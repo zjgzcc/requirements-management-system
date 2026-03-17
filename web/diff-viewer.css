@@ -1,0 +1,544 @@
+/* ===== 版本差异对比模块 - 样式表 ===== */
+
+:root {
+    --diff-added-bg: #d4edda;
+    --diff-added-border: #28a745;
+    --diff-added-text: #155724;
+    --diff-removed-bg: #f8d7da;
+    --diff-removed-border: #dc3545;
+    --diff-removed-text: #721c24;
+    --diff-modified-bg: #fff3cd;
+    --diff-modified-border: #ffc107;
+    --diff-modified-text: #856404;
+    --diff-unchanged-bg: #f8f9fa;
+    --diff-unchanged-border: #dee2e6;
+    --diff-unchanged-text: #212529;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.diff-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+/* 头部控制区 */
+.diff-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.diff-header h1 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+}
+
+.diff-controls {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.diff-controls select,
+.diff-controls button,
+.diff-controls input {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.diff-controls select {
+    background: white;
+    color: #333;
+    min-width: 200px;
+}
+
+.diff-controls button {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.diff-controls button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.diff-controls button.primary {
+    background: #28a745;
+}
+
+.diff-controls button.primary:hover {
+    background: #218838;
+}
+
+/* 统计信息 */
+.diff-stats {
+    display: flex;
+    gap: 20px;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.stat-added {
+    background: var(--diff-added-bg);
+    color: var(--diff-added-text);
+}
+
+.stat-removed {
+    background: var(--diff-removed-bg);
+    color: var(--diff-removed-text);
+}
+
+.stat-modified {
+    background: var(--diff-modified-bg);
+    color: var(--diff-modified-text);
+}
+
+.stat-unchanged {
+    background: var(--diff-unchanged-bg);
+    color: var(--diff-unchanged-text);
+}
+
+/* 过滤器 */
+.diff-filters {
+    display: flex;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.filter-btn {
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #f8f9fa;
+}
+
+.filter-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+/* 差异对比视图 */
+.diff-view {
+    padding: 20px;
+}
+
+.diff-mode-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.mode-tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.2s;
+}
+
+.mode-tab:hover {
+    background: #f8f9fa;
+}
+
+.mode-tab.active {
+    background: #667eea;
+    color: white;
+}
+
+/* 并排对比视图 */
+.diff-split-view {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.diff-panel {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.diff-panel-header {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.diff-panel-header .version-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.diff-content {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* 差异项 */
+.diff-item {
+    border: 1px solid;
+    margin: 10px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.diff-item.added {
+    background: var(--diff-added-bg);
+    border-color: var(--diff-added-border);
+}
+
+.diff-item.removed {
+    background: var(--diff-removed-bg);
+    border-color: var(--diff-removed-border);
+}
+
+.diff-item.modified {
+    background: var(--diff-modified-bg);
+    border-color: var(--diff-modified-border);
+}
+
+.diff-item.unchanged {
+    background: var(--diff-unchanged-bg);
+    border-color: var(--diff-unchanged-border);
+}
+
+.diff-item-header {
+    padding: 10px 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.diff-item-body {
+    padding: 15px;
+}
+
+.diff-field {
+    margin-bottom: 12px;
+}
+
+.diff-field:last-child {
+    margin-bottom: 0;
+}
+
+.diff-field-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.diff-field-value {
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.diff-change-indicator {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.diff-change-indicator.added {
+    background: #28a745;
+    color: white;
+}
+
+.diff-change-indicator.removed {
+    background: #dc3545;
+    color: white;
+}
+
+.diff-change-indicator.modified {
+    background: #ffc107;
+    color: #333;
+}
+
+/* 字段级差异 */
+.field-diff {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.field-diff .old-value {
+    background: var(--diff-removed-bg);
+    padding: 8px;
+    border-radius: 4px;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.field-diff .new-value {
+    background: var(--diff-added-bg);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+/* 操作按钮 */
+.diff-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.accept {
+    background: #28a745;
+    color: white;
+}
+
+.action-btn.accept:hover {
+    background: #218838;
+}
+
+.action-btn.reject {
+    background: #dc3545;
+    color: white;
+}
+
+.action-btn.reject:hover {
+    background: #c82333;
+}
+
+.action-btn.comment {
+    background: #17a2b8;
+    color: white;
+}
+
+.action-btn.comment:hover {
+    background: #138496;
+}
+
+/* 评论区域 */
+.diff-comments {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 4px;
+    border-left: 3px solid #17a2b8;
+}
+
+.comment {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: #666;
+    font-size: 12px;
+}
+
+.comment-text {
+    margin-top: 4px;
+}
+
+.comment-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.comment-input input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.comment-input button {
+    padding: 6px 12px;
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* 加载状态 */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.loading-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+/* 导出按钮区域 */
+.export-section {
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.export-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.export-btn.word {
+    background: #2b579a;
+    color: white;
+}
+
+.export-btn.pdf {
+    background: #dc3545;
+    color: white;
+}
+
+.export-btn.json {
+    background: #28a745;
+    color: white;
+}
+
+.export-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .diff-split-view {
+        grid-template-columns: 1fr;
+    }
+    
+    .diff-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .diff-controls select {
+        width: 100%;
+    }
+    
+    .field-diff {
+        grid-template-columns: 1fr;
+    }
+    
+    .diff-stats {
+        flex-wrap: wrap;
+    }
+}
+
+/* 打印样式 */
+@media print {
+    .diff-controls,
+    .diff-filters,
+    .export-section,
+    .diff-actions {
+        display: none;
+    }
+    
+    .diff-container {
+        box-shadow: none;
+    }
+    
+    .diff-item {
+        break-inside: avoid;
+    }
+}

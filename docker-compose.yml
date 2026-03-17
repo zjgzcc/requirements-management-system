@@ -1,0 +1,95 @@
+# =============================================================================
+# Docker Compose 基础配置
+# =============================================================================
+# 用途：通用配置，包含基本服务定义
+# 使用：docker-compose up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------------------
+  # 应用服务
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: requirements-management-system
+    restart: unless-stopped
+    
+    # 端口映射
+    ports:
+      - "8000:8000"  # FastAPI 后端
+      - "3000:3000"  # Node.js 前端
+    
+    # 环境变量
+    environment:
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/output
+    
+    # 数据卷持久化
+    volumes:
+      # 持久化上传文件
+      - uploads_data:/app/uploads
+      # 持久化输出文件
+      - output_data:/app/output
+      # 持久化日志
+      - app_logs:/app/web/logs
+      # 挂载数据文件（可选，用于数据持久化）
+      - ./web/data:/app/web/data:ro
+    
+    # 网络配置
+    networks:
+      - app-network
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# -------------------------------------------------------------------------
+# 网络配置
+# -------------------------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# -------------------------------------------------------------------------
+# 数据卷
+# -------------------------------------------------------------------------
+volumes:
+  uploads_data:
+    driver: local
+    name: rms-uploads-data
+  output_data:
+    driver: local
+    name: rms-output-data
+  app_logs:
+    driver: local
+    name: rms-app-logs

@@ -1,0 +1,100 @@
+# =============================================================================
+# Docker Compose 开发环境配置
+# =============================================================================
+# 用途：本地开发环境，支持热重载和调试
+# 使用：docker-compose -f docker-compose.dev.yml up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------------------
+  # 应用服务（开发模式）
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: rms-dev
+    
+    # 开发环境端口
+    ports:
+      - "8000:8000"
+      - "3000:3000"
+    
+    # 开发环境变量
+    environment:
+      - NODE_ENV=development
+      - PYTHONUNBUFFERED=1
+      - DEBUG=1
+      - LOG_LEVEL=DEBUG
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/output
+    
+    # 挂载源代码（热重载）
+    volumes:
+      # 挂载后端代码
+      - ./api:/app/api:ro
+      # 挂载前端代码
+      - ./web:/app/web:ro
+      # 持久化数据
+      - uploads_data:/app/uploads
+      - output_data:/app/output
+      - dev_logs:/app/web/logs
+    
+    # 网络配置
+    networks:
+      - app-network
+    
+    # 开发环境资源限制（更宽松）
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+    
+    # 健康检查（开发环境更频繁）
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    
+    # 开发环境日志（更详细）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    
+    # 开发命令（覆盖默认 CMD）
+    command: >
+      sh -c "
+        cd /app/api && 
+        python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug &
+        cd /app/web && 
+        node server.js
+      "
+
+# -------------------------------------------------------------------------
+# 网络配置
+# -------------------------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge
+
+# -------------------------------------------------------------------------
+# 数据卷
+# -------------------------------------------------------------------------
+volumes:
+  uploads_data:
+    driver: local
+    name: rms-dev-uploads
+  output_data:
+    driver: local
+    name: rms-dev-output
+  dev_logs:
+    driver: local
+    name: rms-dev-logs

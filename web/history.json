@@ -25,8 +25,14 @@
       }
     ],
     "rawChanges": {
-      "oldData": { "status": "draft", "priority": "medium" },
-      "newData": { "status": "review", "priority": "high" }
+      "oldData": {
+        "status": "draft",
+        "priority": "medium"
+      },
+      "newData": {
+        "status": "review",
+        "priority": "high"
+      }
     },
     "userId": "admin",
     "operationSource": "api",
@@ -89,6 +95,32 @@
       "userAgent": "system",
       "sessionId": null,
       "reason": "发现 V2.1 版本存在严重问题，回退到稳定版本"
+    }
+  },
+  {
+    "id": "mmurwzrpx76pod4ksx9",
+    "type": "requirement",
+    "itemId": "mmurwzrpaw5wgo2w5of",
+    "action": "create",
+    "changes": {
+      "title": "测试需求 - 自定义字段",
+      "description": "这是一个测试需求"
+    },
+    "rawChanges": {
+      "title": "测试需求 - 自定义字段",
+      "description": "这是一个测试需求"
+    },
+    "userId": "system",
+    "operationSource": "manual",
+    "impactStats": null,
+    "impactSummary": null,
+    "baselineId": null,
+    "timestamp": "2026-03-17T15:34:55.765Z",
+    "audit": {
+      "ipAddress": "localhost",
+      "userAgent": "system",
+      "sessionId": null,
+      "reason": null
     }
   }
 ]

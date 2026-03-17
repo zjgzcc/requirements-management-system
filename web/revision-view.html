@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修订视图 - 需求管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        select, button, input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1557b0;
+        }
+
+        button.active {
+            background: #0d47a1;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .mode-buttons button {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-buttons button.active {
+            background: #1a73e8;
+            color: white;
+        }
+
+        .content-area {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        .main-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 500px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .panel h3 {
+            color: #1a73e8;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #1a73e8;
+            padding-bottom: 10px;
+        }
+
+        /* 变更标记样式 */
+        .change-added {
+            background: #e6f4ea;
+            border-left: 4px solid #34a853;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .change-modified {
+            background: #fef7e0;
+            border-left: 4px solid #f9ab00;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .change-deleted {
+            background: #fce8e6;
+            border-left: 4px solid #ea4335;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            text-decoration: line-through;
+            color: #666;
+        }
+
+        .change-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .change-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .change-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-added {
+            background: #34a853;
+            color: white;
+        }
+
+        .badge-modified {
+            background: #f9ab00;
+            color: white;
+        }
+
+        .badge-deleted {
+            background: #ea4335;
+            color: white;
+        }
+
+        /* 时间线样式 */
+        .timeline {
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e0e0e0;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1a73e8;
+        }
+
+        .timeline-item.added::before {
+            background: #34a853;
+        }
+
+        .timeline-item.modified::before {
+            background: #f9ab00;
+        }
+
+        .timeline-item.deleted::before {
+            background: #ea4335;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .timeline-content {
+            font-size: 13px;
+            color: #333;
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .stat-card.added .stat-number {
+            color: #34a853;
+        }
+
+        .stat-card.modified .stat-number {
+            color: #f9ab00;
+        }
+
+        .stat-card.deleted .stat-number {
+            color: #ea4335;
+        }
+
+        /* 变更详情弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        /* 过滤选项 */
+        .filter-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .filter-section h4 {
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-options label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a73e8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 修订报告 */
+        .report-section {
+            margin-top: 20px;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .report-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .report-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .export-btn {
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .content-area {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 修订视图</h1>
+            <p>查看和管理文档变更历史，支持多种视图模式和过滤选项</p>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>对象类型:</label>
+                    <select id="objectType">
+                        <option value="requirement">需求</option>
+                        <option value="testcase">测试用例</option>
+                        <option value="project">项目</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>对象 ID:</label>
+                    <input type="text" id="objectId" placeholder="输入对象 ID" style="width: 200px;">
+                </div>
+                
+                <div class="control-group">
+                    <button onclick="loadRevision()">加载修订</button>
+                </div>
+                
+                <div class="control-group" style="margin-left: auto;">
+                    <label>视图模式:</label>
+                    <div class="mode-buttons">
+                        <button class="active" data-mode="revision" onclick="setViewMode('revision')">修订视图</button>
+                        <button data-mode="clean" onclick="setViewMode('clean')">纯净视图</button>
+                        <button data-mode="changes-only" onclick="setViewMode('changes-only')">仅看变更</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="main-content">
+                <div id="filterSection" class="filter-section">
+                    <h4>🔍 过滤选项</h4>
+                    <div class="filter-options">
+                        <label>
+                            <input type="checkbox" id="filterAdded" checked onchange="applyFilters()">
+                            <span class="change-type-badge badge-added">新增</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="filterModified" checked onchange="applyFilters()">
+                            <span class="change-type-badge badge-modified">修改</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="filterDeleted" checked onchange="applyFilters()">
+                            <span class="change-type-badge badge-deleted">删除</span>
+                        </label>
+                    </div>
+                    <div class="filter-options" style="margin-top: 10px;">
+                        <label>
+                            时间范围:
+                            <input type="date" id="dateFrom" onchange="applyFilters()">
+                            至
+                            <input type="date" id="dateTo" onchange="applyFilters()">
+                        </label>
+                    </div>
+                </div>
+
+                <div id="loadingState" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>加载中...</p>
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div class="empty-state-icon">📋</div>
+                    <p>暂无修订记录</p>
+                    <p>选择对象并点击"加载修订"查看变更历史</p>
+                </div>
+
+                <div id="contentArea">
+                    <!-- 变更内容将在这里渲染 -->
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <h3>📊 变更统计</h3>
+                    <div class="stats-grid" id="statsGrid">
+                        <div class="stat-card added">
+                            <div class="stat-number" id="statAdded">0</div>
+                            <div class="stat-label">新增</div>
+                        </div>
+                        <div class="stat-card modified">
+                            <div class="stat-number" id="statModified">0</div>
+                            <div class="stat-label">修改</div>
+                        </div>
+                        <div class="stat-card deleted">
+                            <div class="stat-number" id="statDeleted">0</div>
+                            <div class="stat-label">删除</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statTotal">0</div>
+                            <div class="stat-label">总计</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>🕐 变更时间线</h3>
+                    <div class="timeline" id="timeline">
+                        <!-- 时间线将在这里渲染 -->
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>👥 按人统计</h3>
+                    <div id="userStats">
+                        <!-- 用户统计将在这里渲染 -->
+                    </div>
+                </div>
+
+                <div class="panel report-section">
+                    <h3>📄 修订报告</h3>
+                    <button class="export-btn" onclick="exportReport()">导出修订报告</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 变更详情弹窗 -->
+    <div id="changeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">变更详情</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- 详情内容将在这里渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="revision-view.js"></script>
+</body>
+</html>

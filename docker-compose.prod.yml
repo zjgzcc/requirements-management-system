@@ -1,0 +1,141 @@
+# =============================================================================
+# Docker Compose 生产环境配置
+# =============================================================================
+# 用途：生产部署，优化性能和安全性
+# 使用：docker-compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------------------
+  # 应用服务（生产模式）
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: rms-production
+    
+    # 生产环境端口（仅内部访问，配合反向代理）
+    ports:
+      - "8000:8000"
+      - "3000:3000"
+    
+    # 生产环境变量
+    environment:
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+      - DEBUG=0
+      - LOG_LEVEL=INFO
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/output
+      # 安全相关
+      - SECURITY_HEADERS=1
+      - CORS_ORIGINS=https://your-domain.com
+    
+    # 数据卷持久化
+    volumes:
+      # 持久化数据（使用命名卷）
+      - rms_prod_uploads:/app/uploads
+      - rms_prod_output:/app/output
+      - rms_prod_logs:/app/web/logs
+      # 只读配置文件
+      - ./web/data:/app/web/data:ro
+    
+    # 网络配置
+    networks:
+      - rms-network
+    
+    # 重启策略（生产环境必须）
+    restart: always
+    
+    # 生产环境资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # 健康检查（生产环境严格）
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs') || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    
+    # 日志配置（生产环境轮转）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    
+    # 生产环境安全配置
+    security_opt:
+      - no-new-privileges:true
+    
+    # 只读根文件系统（可选，增强安全性）
+    # read_only: true
+    # tmpfs:
+    #   - /tmp:size=100M
+    #   - /var/tmp:size=100M
+
+  # -------------------------------------------------------------------------
+  # Nginx 反向代理（可选，用于生产环境）
+  # -------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: rms-nginx
+    restart: always
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - rms_prod_logs:/var/log/nginx
+    
+    networks:
+      - rms-network
+    
+    depends_on:
+      - app
+    
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# -------------------------------------------------------------------------
+# 网络配置
+# -------------------------------------------------------------------------
+networks:
+  rms-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16
+
+# -------------------------------------------------------------------------
+# 数据卷（生产环境使用外部存储或 NFS）
+# -------------------------------------------------------------------------
+volumes:
+  rms_prod_uploads:
+    driver: local
+    name: rms-prod-uploads
+  rms_prod_output:
+    driver: local
+    name: rms-prod-output
+  rms_prod_logs:
+    driver: local
+    name: rms-prod-logs

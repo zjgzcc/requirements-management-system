@@ -117,5 +117,37 @@
     ],
     "createdAt": "2026-03-16T03:10:54.692Z",
     "updatedAt": "2026-03-16T03:10:54.692Z"
+  },
+  {
+    "id": "mmurwzrpaw5wgo2w5of",
+    "reqId": "REQ-10",
+    "projectId": "mmslip4ss321w2qimp",
+    "prefix": "REQ",
+    "title": "测试需求 - 自定义字段",
+    "category": "用户需求",
+    "status": "draft",
+    "priority": "medium",
+    "assignee": "",
+    "description": "这是一个测试需求",
+    "acceptanceCriteria": "",
+    "headerId": null,
+    "richContent": null,
+    "attachments": [],
+    "columns": [
+      {
+        "id": "mmurwzrokcvyiagg83",
+        "name": "描述",
+        "type": "text",
+        "value": "这是一个测试需求"
+      },
+      {
+        "id": "1",
+        "name": "优先级",
+        "type": "select",
+        "value": "high"
+      }
+    ],
+    "createdAt": "2026-03-17T15:34:55.765Z",
+    "updatedAt": "2026-03-17T15:34:55.765Z"
   }
 ]

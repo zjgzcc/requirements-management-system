@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>版本差异对比 - 需求管理系统</title>
+    <link rel="stylesheet" href="diff-viewer.css">
+</head>
+<body>
+    <div class="diff-container">
+        <!-- 头部 -->
+        <div class="diff-header">
+            <h1>📊 版本差异对比</h1>
+            <div class="diff-controls">
+                <select id="version1-select">
+                    <option value="">选择旧版本</option>
+                </select>
+                <span>➜</span>
+                <select id="version2-select">
+                    <option value="">选择新版本</option>
+                </select>
+                <button id="compare-btn" class="primary" disabled>🔍 开始对比</button>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div id="diff-stats" class="diff-stats">
+            <div class="stat-item stat-added">
+                <span>➕ 新增</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-item stat-removed">
+                <span>➖ 删除</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-item stat-modified">
+                <span>✏️ 修改</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-item stat-unchanged">
+                <span>✓ 未变更</span>
+                <strong>0</strong>
+            </div>
+        </div>
+
+        <!-- 过滤器 -->
+        <div class="diff-filters">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="added">只看新增</button>
+            <button class="filter-btn" data-filter="removed">只看删除</button>
+            <button class="filter-btn" data-filter="modified">只看修改</button>
+            <button class="filter-btn" data-filter="unchanged">只看未变更</button>
+        </div>
+
+        <!-- 对比视图 -->
+        <div class="diff-view">
+            <div class="diff-mode-tabs">
+                <button class="mode-tab active" data-mode="requirement">需求对比</button>
+                <button class="mode-tab" data-mode="testcase">用例对比</button>
+                <button class="mode-tab" data-mode="baseline">基线对比</button>
+            </div>
+
+            <div id="diff-content">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <div>选择两个版本进行对比</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导出区域 -->
+        <div class="export-section">
+            <button id="export-word" class="export-btn word">
+                📄 导出 Word
+            </button>
+            <button id="export-pdf" class="export-btn pdf">
+                📑 导出 PDF
+            </button>
+            <button id="export-json" class="export-btn json">
+                📋 导出 JSON
+            </button>
+        </div>
+    </div>
+
+    <script src="diff-viewer.js"></script>
+</body>
+</html>

@@ -63,6 +63,7 @@ const AI_CACHE_FILE = path.join(__dirname, 'ai-cache.json');
 const TEMPLATES_FILE = path.join(__dirname, 'templates.json');
 const CUSTOM_FIELDS_FILE = path.join(__dirname, 'custom-fields.json');
 const AUDIT_LOGS_FILE = path.join(__dirname, 'audit-logs.json');
+const REVISIONS_FILE = path.join(__dirname, 'revisions.json');
 
 // MIME 类型映射
 const mimeTypes = {
@@ -109,6 +110,7 @@ let defects = initializeFile(DEFECTS_FILE, []); // 缺陷数据
 let templatesData = initializeFile(TEMPLATES_FILE, { templates: [] });
 let customFields = initializeFile(CUSTOM_FIELDS_FILE, { fields: [], nextId: 1 }); // 自定义字段
 let auditLogs = initializeFile(AUDIT_LOGS_FILE, []); // 审计日志
+let revisions = initializeFile(REVISIONS_FILE, []); // 修订记录
 
 // 初始化默认用户
 if (users.length === 0) {

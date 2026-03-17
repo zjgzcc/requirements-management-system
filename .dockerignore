@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn.lock
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+server.log
+
+# Data files (keep structure, not content)
+web/uploads.json
+web/users.json
+web/sessions.json
+web/projects.json
+web/requirements.json
+web/testcases.json
+web/tasks.json
+web/defects.json
+web/templates.json
+web/custom-fields.json
+web/baselines.json
+web/traces.json
+web/audit-logs.json
+web/id_counter.json
+web/prefixes.json
+web/headers.json
+web/history.json
+
+# Output
+output/
+uploads/
+*.pdf
+*.docx
+*.xlsx
+
+# Build artifacts
+web/dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp-*.txt
+*.tmp
