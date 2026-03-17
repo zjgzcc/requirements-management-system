@@ -45,7 +45,15 @@ const ERROR_CODES = {
     INTERNAL_ERROR: 9000,
     INVALID_REQUEST: 9001,
     DATABASE_ERROR: 9002,
-    VALIDATION_ERROR: 9003
+    VALIDATION_ERROR: 9003,
+    
+    // 10xxx - AI 服务
+    AI_SERVICE_ERROR: 10001,
+    AI_TIMEOUT: 10002,
+    AI_MODEL_ERROR: 10003,
+    
+    // 11xxx - 搜索
+    SEARCH_ERROR: 11001,
 };
 
 // 日志文件路径

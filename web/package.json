@@ -10,6 +10,7 @@
     "build": "npm run obfuscate && npm run verify"
   },
   "dependencies": {
+    "axios": "^1.13.6",
     "docx": "^9.6.1",
     "formidable": "^3.5.4",
     "xlsx": "^0.18.5"

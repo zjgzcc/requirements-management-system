@@ -937,8 +937,7 @@
                 <div class="action-buttons" id="actionButtons">
                     <button class="btn-primary" onclick="showRequirementModal()">+ 新建需求</button>
                     <button class="btn-secondary" onclick="showImportModal()">📥 导入</button>
-                    <button class="btn-secondary" onclick="exportToExcel()">📊 导出 Excel</button>
-                    <button class="btn-secondary" onclick="exportToPDF()">📄 导出 PDF</button>
+                    <button class="btn-secondary" onclick="showExportMenu()">📤 导出</button>
                     <button class="btn-secondary" onclick="window.open('testcases.html', '_blank')">🧪 高级用例管理</button>
                 </div>
             </div>
@@ -4540,6 +4539,173 @@
         function showBatchLinkModal() {
             showBatchModal();
         }
+
+        // ===== Word/Excel 导出功能 =====
+        let selectedExportFormat = null;
+
+        // 显示导出菜单
+        function showExportMenu() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            // 重置选择状态
+            selectedExportFormat = null;
+            document.getElementById('exportFormatWord').style.background = '';
+            document.getElementById('exportFormatWord').style.borderColor = '#e1e1e1';
+            document.getElementById('exportFormatExcel').style.background = '';
+            document.getElementById('exportFormatExcel').style.borderColor = '#e1e1e1';
+            document.getElementById('executeExportBtn').disabled = true;
+            
+            // 检查是否有选中的项目
+            const selectedCount = currentTab === 'requirements' ? selectedReqs.size : selectedTcs.size;
+            if (selectedCount > 0) {
+                document.getElementById('selectedItemsInfo').style.display = 'block';
+                document.getElementById('selectedExportCount').textContent = selectedCount;
+            } else {
+                document.getElementById('selectedItemsInfo').style.display = 'none';
+            }
+            
+            // 更新预览
+            toggleExportOptions();
+            
+            document.getElementById('exportMenuModal').classList.add('active');
+        }
+
+        // 选择导出格式
+        function selectExportFormat(format) {
+            selectedExportFormat = format;
+            
+            // 更新 UI
+            document.getElementById('exportFormatWord').style.background = format === 'word' ? '#f0f4ff' : '';
+            document.getElementById('exportFormatWord').style.borderColor = format === 'word' ? '#667eea' : '#e1e1e1';
+            document.getElementById('exportFormatExcel').style.background = format === 'excel' ? '#f0f4ff' : '';
+            document.getElementById('exportFormatExcel').style.borderColor = format === 'excel' ? '#667eea' : '#e1e1e1';
+            
+            // 启用导出按钮
+            document.getElementById('executeExportBtn').disabled = false;
+        }
+
+        // 切换导出选项
+        function toggleExportOptions() {
+            const includeReqs = document.getElementById('exportIncludeReqs').checked;
+            const includeTcs = document.getElementById('exportIncludeTcs').checked;
+            const includeTrace = document.getElementById('exportIncludeTrace').checked;
+            const groupByHeader = document.getElementById('exportGroupByHeader').checked;
+            
+            const items = [];
+            if (includeReqs) items.push('需求列表');
+            if (includeTcs) items.push('测试用例');
+            if (includeTrace) items.push('追踪矩阵');
+            
+            document.getElementById('exportPreview').innerHTML = `
+                <p style="color: #666; margin: 0;">✅ 包含：${items.join('、') || '无'}</p>
+                <p style="color: #666; margin: 5px 0 0 0;">📑 分组：${groupByHeader ? '按标题层级' : '不分组'}</p>
+            `;
+        }
+
+        // 执行导出
+        async function executeExport() {
+            if (!selectedExportFormat) {
+                showToast('请选择导出格式', 'error');
+                return;
+            }
+            
+            const includeReqs = document.getElementById('exportIncludeReqs').checked;
+            const includeTcs = document.getElementById('exportIncludeTcs').checked;
+            const includeTrace = document.getElementById('exportIncludeTrace').checked;
+            const groupByHeader = document.getElementById('exportGroupByHeader').checked;
+            
+            // 构建 URL 参数
+            let url = `${API_BASE}/export/${selectedExportFormat}?projectId=${currentProjectId}`;
+            
+            // 如果有选中的项目，只导出这些
+            const selectedIds = currentTab === 'requirements' 
+                ? Array.from(selectedReqs) 
+                : Array.from(selectedTcs);
+            
+            if (selectedIds.length > 0) {
+                if (currentTab === 'requirements') {
+                    url += `&reqIds=${selectedIds.join(',')}`;
+                } else {
+                    url += `&tcIds=${selectedIds.join(',')}`;
+                }
+            }
+            
+            try {
+                showToast('正在生成文件...', 'success');
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || '导出失败');
+                }
+                
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                
+                // 生成文件名
+                const project = projects.find(p => p.id === currentProjectId);
+                const timestamp = new Date().toISOString().split('T')[0];
+                const ext = selectedExportFormat === 'word' ? 'docx' : 'xlsx';
+                a.download = `${project?.name || '项目'}_导出_${timestamp}.${ext}`;
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+                
+                showToast('导出成功！', 'success');
+                closeModal('exportMenuModal');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败：' + error.message, 'error');
+            }
+        }
+
+        // 显示自定义模板模态框
+        function showCustomTemplateModal() {
+            document.getElementById('customTemplateModal').classList.add('active');
+        }
+
+        // 保存自定义模板
+        function saveCustomTemplate() {
+            const name = document.getElementById('templateName').value.trim();
+            const desc = document.getElementById('templateDesc').value.trim();
+            const fields = Array.from(document.querySelectorAll('.templateField:checked')).map(cb => cb.value);
+            
+            if (!name) {
+                showToast('请输入模板名称', 'error');
+                return;
+            }
+            
+            const template = {
+                id: 'custom_' + Date.now(),
+                name,
+                description: desc,
+                format: selectedExportFormat,
+                fields,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 保存到 localStorage
+            const templates = JSON.parse(localStorage.getItem('exportTemplates') || '[]');
+            templates.push(template);
+            localStorage.setItem('exportTemplates', JSON.stringify(templates));
+            
+            showToast('模板已保存', 'success');
+            closeModal('customTemplateModal');
+        }
+
+        // 旧的导出函数保留作为降级方案
+        function exportToExcel() {
+            showExportMenu();
+        }
+
+        function exportToPDF() {
+            showExportMenu();
+        }
     </script>
 
                 </div>
@@ -4658,6 +4824,145 @@
             <div class="modal-footer">
                 <button class="btn-outline" onclick="closeModal('batchUnlinkModal')">取消</button>
                 <button class="btn-danger" onclick="confirmBatchUnlink()">确认取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出菜单模态框 -->
+    <div class="modal-overlay" id="exportMenuModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>📤 导出选项</h2>
+                <button class="close-btn" onclick="closeModal('exportMenuModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #2e7d32; font-size: 14px;">
+                        <strong>💡 导出说明：</strong>选择导出格式和选项，支持 Word 和 Excel 格式，可自定义导出内容
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label>导出格式</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                        <div onclick="selectExportFormat('word')" id="exportFormatWord" 
+                             style="padding: 20px; border: 2px solid #667eea; border-radius: 8px; cursor: pointer; text-align: center; background: #f0f4ff;">
+                            <div style="font-size: 32px; margin-bottom: 8px;">📄</div>
+                            <div style="font-weight: 600; color: #333;">Word 文档</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">.docx 格式，带目录和样式</div>
+                        </div>
+                        <div onclick="selectExportFormat('excel')" id="exportFormatExcel" 
+                             style="padding: 20px; border: 2px solid #e1e1e1; border-radius: 8px; cursor: pointer; text-align: center;">
+                            <div style="font-size: 32px; margin-bottom: 8px;">📊</div>
+                            <div style="font-weight: 600; color: #333;">Excel 表格</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">.xlsx 格式，带分组折叠</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>导出范围</label>
+                    <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" id="exportIncludeReqs" checked onchange="toggleExportOptions()">
+                            <span>📋 需求列表</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" id="exportIncludeTcs" checked onchange="toggleExportOptions()">
+                            <span>🧪 测试用例</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" id="exportIncludeTrace" checked onchange="toggleExportOptions()">
+                            <span>🔗 追踪矩阵</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>分组选项</label>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" id="exportGroupByHeader" checked>
+                            <span>📑 按标题层级分组</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>导出内容预览</label>
+                    <div id="exportPreview" style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 10px; font-size: 13px;">
+                        <p style="color: #666; margin: 0;">✅ 包含：需求列表、测试用例、追踪矩阵</p>
+                        <p style="color: #666; margin: 5px 0 0 0;">📑 分组：按标题层级</p>
+                    </div>
+                </div>
+
+                <div id="selectedItemsInfo" style="display: none; padding: 15px; background: #fff3cd; border-radius: 8px; margin-top: 10px;">
+                    <p style="margin: 0; color: #856404; font-size: 13px;">
+                        <strong>ℹ️ 提示：</strong>已选择 <span id="selectedExportCount">0</span> 项，将只导出选中的项目
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('exportMenuModal')">取消</button>
+                <button class="btn-primary" onclick="executeExport()" id="executeExportBtn" disabled>
+                    确认导出
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义模板模态框 -->
+    <div class="modal-overlay" id="customTemplateModal">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>🎨 自定义导出模板</h2>
+                <button class="close-btn" onclick="closeModal('customTemplateModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>模板名称</label>
+                    <input type="text" id="templateName" placeholder="例如：需求规格说明书模板">
+                </div>
+                <div class="form-group">
+                    <label>选择要包含的字段</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="reqId" checked> 需求 ID
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="description" checked> 描述
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="status" checked> 状态
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="priority" checked> 优先级
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="category"> 分类
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="assignee"> 负责人
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="acceptanceCriteria"> 验收标准
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="createdAt"> 创建时间
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" class="templateField" value="updatedAt"> 更新时间
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>模板说明</label>
+                    <textarea id="templateDesc" placeholder="描述此模板的用途..." style="min-height: 80px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('customTemplateModal')">取消</button>
+                <button class="btn-primary" onclick="saveCustomTemplate()">保存模板</button>
             </div>
         </div>
     </div>
