@@ -420,6 +420,427 @@ function findChanges(oldObj, newObj) {
     return changes;
 }
 
+// ===== 版本差异对比辅助函数 =====
+
+// 计算两个基线之间的差异
+function calculateDiff(baseline1, baseline2) {
+    const diff = {
+        baseline1: { id: baseline1.id, version: baseline1.version, name: baseline1.name },
+        baseline2: { id: baseline2.id, version: baseline2.version, name: baseline2.name },
+        added: [],      // 在 baseline2 中新增的项
+        removed: [],    // 在 baseline2 中删除的项
+        modified: [],   // 在 baseline2 中修改的项
+        unchanged: [],  // 未变化的项
+        fieldChanges: [], // 字段级变更详情
+        stats: {
+            added: 0,
+            removed: 0,
+            modified: 0,
+            unchanged: 0,
+            total: 0
+        }
+    };
+
+    // 创建映射
+    const baseline1Map = new Map();
+    baseline1.items.forEach(item => {
+        baseline1Map.set(item.id, item);
+    });
+
+    const baseline2Map = new Map();
+    baseline2.items.forEach(item => {
+        baseline2Map.set(item.id, item);
+    });
+
+    // 查找删除和修改的项
+    baseline1.items.forEach(item1 => {
+        const item2 = baseline2Map.get(item1.id);
+        if (!item2) {
+            // 在 baseline2 中被删除
+            diff.removed.push(createItemSnapshot(item1, 'removed'));
+        } else {
+            // 检查是否有修改
+            const hasChanges = JSON.stringify(item1.snapshot || item1) !== JSON.stringify(item2.snapshot || item2);
+            if (hasChanges) {
+                const fieldChanges = findFieldChanges(item1.snapshot || item1, item2.snapshot || item2);
+                diff.modified.push({
+                    ...createItemSnapshot(item2, 'modified'),
+                    oldData: item1.snapshot || item1,
+                    newData: item2.snapshot || item2,
+                    fieldChanges: fieldChanges
+                });
+                diff.fieldChanges.push(...fieldChanges.map(fc => ({
+                    id: item1.id,
+                    ...fc
+                })));
+            } else {
+                diff.unchanged.push(createItemSnapshot(item1, 'unchanged'));
+            }
+        }
+    });
+
+    // 查找新增的项
+    baseline2.items.forEach(item2 => {
+        if (!baseline1Map.has(item2.id)) {
+            diff.added.push(createItemSnapshot(item2, 'added'));
+        }
+    });
+
+    // 计算统计
+    diff.stats.added = diff.added.length;
+    diff.stats.removed = diff.removed.length;
+    diff.stats.modified = diff.modified.length;
+    diff.stats.unchanged = diff.unchanged.length;
+    diff.stats.total = diff.added.length + diff.removed.length + diff.modified.length;
+
+    return diff;
+}
+
+// 创建项目快照
+function createItemSnapshot(item, changeType) {
+    const snapshot = item.snapshot || item;
+    return {
+        id: snapshot.id,
+        reqId: snapshot.reqId,
+        tcId: snapshot.tcId,
+        name: snapshot.name,
+        description: snapshot.description,
+        steps: snapshot.steps,
+        expectedResult: snapshot.expectedResult,
+        columns: snapshot.columns,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        changeType: changeType
+    };
+}
+
+// 查找字段级变更
+function findFieldChanges(oldObj, newObj) {
+    const changes = [];
+    const fieldsToCompare = ['description', 'acceptanceCriteria', 'steps', 'expectedResult', 'richContent', 'name'];
+    
+    fieldsToCompare.forEach(field => {
+        const oldValue = oldObj[field];
+        const newValue = newObj[field];
+        
+        if (oldValue !== newValue) {
+            changes.push({
+                field,
+                oldValue: oldValue || '',
+                newValue: newValue || '',
+                changeType: !oldValue ? 'added' : !newValue ? 'removed' : 'modified'
+            });
+        }
+    });
+
+    // 比较 columns 字段
+    if (oldObj.columns || newObj.columns) {
+        const oldColumns = oldObj.columns || [];
+        const newColumns = newObj.columns || [];
+        
+        oldColumns.forEach(oldCol => {
+            const newCol = newColumns.find(nc => nc.id === oldCol.id);
+            if (!newCol) {
+                changes.push({
+                    field: `column:${oldCol.name}`,
+                    oldValue: oldCol.value || '',
+                    newValue: '',
+                    changeType: 'removed'
+                });
+            } else if (oldCol.value !== newCol.value) {
+                changes.push({
+                    field: `column:${oldCol.name}`,
+                    oldValue: oldCol.value || '',
+                    newValue: newCol.value || '',
+                    changeType: 'modified'
+                });
+            }
+        });
+
+        newColumns.forEach(newCol => {
+            const oldCol = oldColumns.find(oc => oc.id === newCol.id);
+            if (!oldCol) {
+                changes.push({
+                    field: `column:${newCol.name}`,
+                    oldValue: '',
+                    newValue: newCol.value || '',
+                    changeType: 'added'
+                });
+            }
+        });
+    }
+
+    return changes;
+}
+
+// 生成差异 Word 报告
+async function generateDiffWordReport(diff, mode) {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType } = require('docx');
+    
+    const modeName = mode === 'requirement' ? '需求' : mode === 'testcase' ? '用例' : '基线';
+    
+    const children = [
+        new Paragraph({
+            text: `版本差异对比报告`,
+            heading: HeadingLevel.TITLE,
+            spacing: { after: 400 }
+        }),
+        new Paragraph({
+            text: `${modeName}对比`,
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 200, after: 200 }
+        }),
+        new Paragraph({
+            text: `版本 ${diff.baseline1.version} → 版本 ${diff.baseline2.version}`,
+            spacing: { after: 400 }
+        }),
+        new Paragraph({
+            text: `生成时间：${new Date().toLocaleString('zh-CN')}`,
+            spacing: { after: 400 }
+        }),
+        
+        // 统计信息表格
+        new Paragraph({
+            text: '变更统计',
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 400, after: 200 }
+        }),
+        new Table({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph({ text: '变更类型', alignment: AlignmentType.CENTER })], shading: { fill: '667eea' } }),
+                        new TableCell({ children: [new Paragraph({ text: '数量', alignment: AlignmentType.CENTER })], shading: { fill: '667eea' } })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph('新增')] }),
+                        new TableCell({ children: [new Paragraph(diff.stats.added.toString())] })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph('删除')] }),
+                        new TableCell({ children: [new Paragraph(diff.stats.removed.toString())] })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph('修改')] }),
+                        new TableCell({ children: [new Paragraph(diff.stats.modified.toString())] })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph('总计')] }),
+                        new TableCell({ children: [new Paragraph(diff.stats.total.toString())] })
+                    ]
+                })
+            ]
+        })
+    ];
+
+    // 新增项
+    if (diff.added.length > 0) {
+        children.push(
+            new Paragraph({
+                text: '新增项',
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 },
+                pageBreakBefore: true
+            })
+        );
+
+        diff.added.forEach((item, index) => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `${index + 1}. ${item.reqId || item.tcId || item.name || item.id}`,
+                            bold: true,
+                            size: 24
+                        })
+                    ],
+                    heading: HeadingLevel.HEADING_3,
+                    spacing: { before: 200, after: 100 }
+                })
+            );
+
+            if (item.description) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: '描述：', bold: true }), new TextRun({ text: item.description })],
+                    spacing: { after: 100 }
+                }));
+            }
+        });
+    }
+
+    // 删除项
+    if (diff.removed.length > 0) {
+        children.push(
+            new Paragraph({
+                text: '删除项',
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 },
+                pageBreakBefore: true
+            })
+        );
+
+        diff.removed.forEach((item, index) => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `${index + 1}. ${item.reqId || item.tcId || item.name || item.id}`,
+                            bold: true,
+                            size: 24
+                        })
+                    ],
+                    heading: HeadingLevel.HEADING_3,
+                    spacing: { before: 200, after: 100 }
+                })
+            );
+
+            if (item.description) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: '描述：', bold: true }), new TextRun({ text: item.description })],
+                    spacing: { after: 100 }
+                }));
+            }
+        });
+    }
+
+    // 修改项
+    if (diff.modified.length > 0) {
+        children.push(
+            new Paragraph({
+                text: '修改项',
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 },
+                pageBreakBefore: true
+            })
+        );
+
+        diff.modified.forEach((item, index) => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `${index + 1}. ${item.reqId || item.tcId || item.name || item.id}`,
+                            bold: true,
+                            size: 24
+                        })
+                    ],
+                    heading: HeadingLevel.HEADING_3,
+                    spacing: { before: 200, after: 100 }
+                })
+            );
+
+            if (item.fieldChanges && item.fieldChanges.length > 0) {
+                item.fieldChanges.forEach(fc => {
+                    children.push(
+                        new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph({ text: fc.field, bold: true })], shading: { fill: 'f5f5f5' } }),
+                                        new TableCell({ children: [new Paragraph('变更前')] }),
+                                        new TableCell({ children: [new Paragraph('变更后')] })
+                                    ]
+                                }),
+                                new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph('')] }),
+                                        new TableCell({ children: [new Paragraph(fc.oldValue || '空')] }),
+                                        new TableCell({ children: [new Paragraph(fc.newValue || '空')] })
+                                    ]
+                                })
+                            ]
+                        })
+                    );
+                });
+            }
+        });
+    }
+
+    const doc = new Document({
+        creator: '需求管理系统 - 差异对比模块',
+        title: `${modeName}差异对比报告`,
+        sections: [{ children }]
+    });
+
+    return await Packer.toBuffer(doc);
+}
+
+// 生成差异 HTML 报告
+function generateDiffHTMLReport(diff, mode) {
+    const modeName = mode === 'requirement' ? '需求' : mode === 'testcase' ? '用例' : '基线';
+    
+    let html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>版本差异对比报告 - ${modeName}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat { padding: 10px 20px; border-radius: 4px; }
+        .stat-added { background: #d4edda; color: #155724; }
+        .stat-removed { background: #f8d7da; color: #721c24; }
+        .stat-modified { background: #fff3cd; color: #856404; }
+        .item { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 4px; }
+        .item-added { background: #d4edda; border-color: #28a745; }
+        .item-removed { background: #f8d7da; border-color: #dc3545; }
+        .item-modified { background: #fff3cd; border-color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>${modeName}差异对比报告</h1>
+    <p>版本 ${diff.baseline1.version} → 版本 ${diff.baseline2.version}</p>
+    <p>生成时间：${new Date().toLocaleString('zh-CN')}</p>
+    
+    <div class="stats">
+        <div class="stat stat-added">新增：${diff.stats.added}</div>
+        <div class="stat stat-removed">删除：${diff.stats.removed}</div>
+        <div class="stat stat-modified">修改：${diff.stats.modified}</div>
+    </div>
+`;
+
+    if (diff.added.length > 0) {
+        html += '<h2>新增项</h2>';
+        diff.added.forEach(item => {
+            html += `<div class="item item-added"><strong>${item.reqId || item.tcId || item.name || item.id}</strong><p>${item.description || ''}</p></div>`;
+        });
+    }
+
+    if (diff.removed.length > 0) {
+        html += '<h2>删除项</h2>';
+        diff.removed.forEach(item => {
+            html += `<div class="item item-removed"><strong>${item.reqId || item.tcId || item.name || item.id}</strong><p>${item.description || ''}</p></div>`;
+        });
+    }
+
+    if (diff.modified.length > 0) {
+        html += '<h2>修改项</h2>';
+        diff.modified.forEach(item => {
+            html += `<div class="item item-modified"><strong>${item.reqId || item.tcId || item.name || item.id}</strong>`;
+            if (item.fieldChanges) {
+                item.fieldChanges.forEach(fc => {
+                    html += `<p><strong>${fc.field}:</strong> ${fc.oldValue} → ${fc.newValue}</p>`;
+                });
+            }
+            html += '</div>';
+        });
+    }
+
+    html += '</body></html>';
+    return html;
+}
+
 // ===== 基线导出辅助函数 - 生成 PDF 友好的 HTML 内容 =====
 function generateBaselinePDF(baseline, allRequirements, allTestcases) {
     const itemType = baseline.type === 'requirement' ? '需求' : '用例';
@@ -3166,6 +3587,110 @@ async function handleApiRequest(req, res, fullUrl) {
             });
         }
 
+        // ===== 版本差异对比 API =====
+        // GET /api/diff/requirement/:id1/:id2 - 需求差异对比
+        if (url.match(/^\/api\/diff\/requirement\/[^\/]+\/[^\/]+$/) && method === 'GET') {
+            const parts = url.split('/');
+            const baselineId1 = parts[4];
+            const baselineId2 = parts[5];
+            
+            const baseline1 = baselines.find(b => b.id === baselineId1 && b.type === 'requirement');
+            const baseline2 = baselines.find(b => b.id === baselineId2 && b.type === 'requirement');
+            
+            if (!baseline1) {
+                return jsonRes(res, 404, { success: false, message: '基线 1 不存在或类型不匹配' });
+            }
+            if (!baseline2) {
+                return jsonRes(res, 404, { success: false, message: '基线 2 不存在或类型不匹配' });
+            }
+
+            const diffResult = calculateDiff(baseline1, baseline2);
+            return jsonRes(res, 200, { success: true, diff: diffResult });
+        }
+
+        // GET /api/diff/testcase/:id1/:id2 - 用例差异对比
+        if (url.match(/^\/api\/diff\/testcase\/[^\/]+\/[^\/]+$/) && method === 'GET') {
+            const parts = url.split('/');
+            const baselineId1 = parts[4];
+            const baselineId2 = parts[5];
+            
+            const baseline1 = baselines.find(b => b.id === baselineId1 && b.type === 'testcase');
+            const baseline2 = baselines.find(b => b.id === baselineId2 && b.type === 'testcase');
+            
+            if (!baseline1) {
+                return jsonRes(res, 404, { success: false, message: '基线 1 不存在或类型不匹配' });
+            }
+            if (!baseline2) {
+                return jsonRes(res, 404, { success: false, message: '基线 2 不存在或类型不匹配' });
+            }
+
+            const diffResult = calculateDiff(baseline1, baseline2);
+            return jsonRes(res, 200, { success: true, diff: diffResult });
+        }
+
+        // GET /api/diff/baseline/:id1/:id2 - 基线版本对比
+        if (url.match(/^\/api\/diff\/baseline\/[^\/]+\/[^\/]+$/) && method === 'GET') {
+            const parts = url.split('/');
+            const baselineId1 = parts[4];
+            const baselineId2 = parts[5];
+            
+            const baseline1 = baselines.find(b => b.id === baselineId1);
+            const baseline2 = baselines.find(b => b.id === baselineId2);
+            
+            if (!baseline1) {
+                return jsonRes(res, 404, { success: false, message: '基线 1 不存在' });
+            }
+            if (!baseline2) {
+                return jsonRes(res, 404, { success: false, message: '基线 2 不存在' });
+            }
+
+            const diffResult = calculateDiff(baseline1, baseline2);
+            return jsonRes(res, 200, { success: true, diff: diffResult });
+        }
+
+        // POST /api/diff/report - 生成差异报告
+        if (url === '/api/diff/report' && method === 'POST') {
+            const body = await parseBody(req);
+            const { mode, version1, version2, diff, format = 'json' } = body;
+            
+            if (!diff) {
+                return jsonRes(res, 400, { success: false, message: '缺少差异数据' });
+            }
+
+            try {
+                let buffer;
+                let contentType;
+                let filename;
+
+                if (format === 'word') {
+                    buffer = await generateDiffWordReport(diff, mode);
+                    contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                    filename = `差异报告-${mode}-${Date.now()}.docx`;
+                } else if (format === 'pdf') {
+                    // PDF 生成需要额外的库，这里返回 HTML 转 PDF 的提示
+                    return jsonRes(res, 200, { 
+                        success: true, 
+                        message: 'PDF 导出功能需要额外配置，已生成 HTML 版本',
+                        html: generateDiffHTMLReport(diff, mode)
+                    });
+                } else {
+                    // JSON 格式
+                    buffer = Buffer.from(JSON.stringify(diff, null, 2), 'utf-8');
+                    contentType = 'application/json';
+                    filename = `差异报告-${mode}-${Date.now()}.json`;
+                }
+
+                res.writeHead(200, {
+                    'Content-Type': contentType,
+                    'Content-Disposition': `attachment; filename="${filename}"`
+                });
+                res.end(buffer);
+            } catch (error) {
+                console.error('生成报告失败:', error);
+                return jsonRes(res, 500, { success: false, message: '生成报告失败: ' + error.message });
+            }
+        }
+
         // ===== 基线恢复 API - 将当前数据恢复到某个基线版本 =====
         if (url.match(/^\/api\/baselines\/[^\/]+\/restore$/) && method === 'POST') {
             const baselineId = url.split('/')[3];
@@ -4560,6 +5085,228 @@ async function handleApiRequest(req, res, fullUrl) {
         // License 管理 API
         if (url.startsWith('/api/license')) {
             return licenseAPI(req, res);
+        }
+
+        // ===== 修订管理 API =====
+        // GET /api/revision/:type/:id - 获取修订历史
+        if (url.match(/^\/api\/revision\/[^\/]+\/[^\/]+$/) && method === 'GET') {
+            const parts = url.split('/');
+            const objectType = parts[4];
+            const objectId = parts[5];
+            
+            try {
+                const objectRevisions = revisions.filter(r => 
+                    r.objectType === objectType && r.objectId === objectId
+                );
+                
+                // 合并所有变更
+                const allChanges = [];
+                objectRevisions.forEach(rev => {
+                    if (rev.changes && Array.isArray(rev.changes)) {
+                        rev.changes.forEach(change => {
+                            allChanges.push({
+                                ...change,
+                                revisionId: rev.id
+                            });
+                        });
+                    }
+                });
+                
+                // 按时间戳排序
+                allChanges.sort((a, b) => b.timestamp - a.timestamp);
+                
+                return jsonRes(res, 200, {
+                    success: true,
+                    message: '获取修订历史成功',
+                    data: {
+                        objectType,
+                        objectId,
+                        changes: allChanges,
+                        total: allChanges.length
+                    }
+                });
+            } catch (error) {
+                logError(error, { type: 'get_revision', objectType, objectId });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
+        }
+        
+        // GET /api/revision/:type/:id/changes - 获取变更列表
+        if (url.match(/^\/api\/revision\/[^\/]+\/[^\/]+\/changes$/) && method === 'GET') {
+            const parts = url.split('/');
+            const objectType = parts[4];
+            const objectId = parts[5];
+            
+            try {
+                const objectRevisions = revisions.filter(r => 
+                    r.objectType === objectType && r.objectId === objectId
+                );
+                
+                const allChanges = [];
+                objectRevisions.forEach(rev => {
+                    if (rev.changes && Array.isArray(rev.changes)) {
+                        rev.changes.forEach(change => {
+                            allChanges.push(change);
+                        });
+                    }
+                });
+                
+                allChanges.sort((a, b) => b.timestamp - a.timestamp);
+                
+                return jsonRes(res, 200, {
+                    success: true,
+                    message: '获取变更列表成功',
+                    data: {
+                        changes: allChanges,
+                        total: allChanges.length
+                    }
+                });
+            } catch (error) {
+                logError(error, { type: 'get_changes', objectType, objectId });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
+        }
+        
+        // POST /api/revision/mark - 标记变更
+        if (url === '/api/revision/mark' && method === 'POST') {
+            const body = await parseBody(req);
+            const { objectType, objectId, changes, userId, userName, description } = body;
+            
+            if (!objectType || !objectId || !changes) {
+                return jsonRes(res, 400, { 
+                    success: false, 
+                    message: '对象类型、对象 ID 和变更内容不能为空' 
+                });
+            }
+            
+            try {
+                const revision = {
+                    id: 'rev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    objectType,
+                    objectId,
+                    userId: userId || 'unknown',
+                    userName: userName || '未知用户',
+                    description: description || '',
+                    timestamp: Date.now(),
+                    createdAt: new Date().toISOString(),
+                    changes: Array.isArray(changes) ? changes : [changes]
+                };
+                
+                // 为每个变更添加元数据
+                revision.changes.forEach((change, index) => {
+                    change.id = change.id || ('change_' + index + '_' + Date.now());
+                    change.objectType = objectType;
+                    change.objectId = objectId;
+                    change.timestamp = change.timestamp || Date.now();
+                    change.userId = change.userId || userId || 'unknown';
+                    change.userName = change.userName || userName || '未知用户';
+                });
+                
+                revisions.push(revision);
+                fs.writeFileSync(REVISIONS_FILE, JSON.stringify(revisions, null, 2));
+                
+                // 记录审计日志
+                logAudit({
+                    username: userName || 'unknown',
+                    userRole: 'user',
+                    operationType: 'create',
+                    dataType: 'revision',
+                    ipAddress: getClientIp(req),
+                    userAgent: req.headers['user-agent'] || 'unknown',
+                    method: 'POST',
+                    endpoint: '/api/revision/mark',
+                    status: 'success',
+                    details: `标记修订：${objectType}/${objectId}`,
+                    objectId: revision.id
+                });
+                
+                return jsonRes(res, 200, {
+                    success: true,
+                    message: '标记变更成功',
+                    data: revision
+                });
+            } catch (error) {
+                logError(error, { type: 'mark_revision', objectType, objectId });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
+        }
+        
+        // GET /api/revision/report - 生成修订报告
+        if (url === '/api/revision/report' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const type = urlObj.searchParams.get('type');
+            const id = urlObj.searchParams.get('id');
+            
+            try {
+                let objectRevisions = revisions;
+                
+                if (type && id) {
+                    objectRevisions = revisions.filter(r => 
+                        r.objectType === type && r.objectId === id
+                    );
+                }
+                
+                // 统计数据
+                const stats = {
+                    totalRevisions: objectRevisions.length,
+                    totalChanges: 0,
+                    byType: { added: 0, modified: 0, deleted: 0 },
+                    byUser: {},
+                    byDate: {}
+                };
+                
+                const allChanges = [];
+                
+                objectRevisions.forEach(rev => {
+                    if (rev.changes && Array.isArray(rev.changes)) {
+                        stats.totalChanges += rev.changes.length;
+                        
+                        rev.changes.forEach(change => {
+                            allChanges.push(change);
+                            
+                            // 按类型统计
+                            if (change.type === 'added') stats.byType.added++;
+                            else if (change.type === 'modified') stats.byType.modified++;
+                            else if (change.type === 'deleted') stats.byType.deleted++;
+                            
+                            // 按用户统计
+                            const userName = change.userName || '未知用户';
+                            if (!stats.byUser[userName]) {
+                                stats.byUser[userName] = { added: 0, modified: 0, deleted: 0, total: 0 };
+                            }
+                            stats.byUser[userName].total++;
+                            if (change.type === 'added') stats.byUser[userName].added++;
+                            else if (change.type === 'modified') stats.byUser[userName].modified++;
+                            else if (change.type === 'deleted') stats.byUser[userName].deleted++;
+                            
+                            // 按日期统计
+                            const date = new Date(change.timestamp).toISOString().split('T')[0];
+                            if (!stats.byDate[date]) {
+                                stats.byDate[date] = 0;
+                            }
+                            stats.byDate[date]++;
+                        });
+                    }
+                });
+                
+                const report = {
+                    generatedAt: new Date().toISOString(),
+                    objectType: type,
+                    objectId: id,
+                    summary: stats,
+                    changes: allChanges.sort((a, b) => b.timestamp - a.timestamp),
+                    revisions: objectRevisions
+                };
+                
+                return jsonRes(res, 200, {
+                    success: true,
+                    message: '生成修订报告成功',
+                    data: report
+                });
+            } catch (error) {
+                logError(error, { type: 'revision_report', type, id });
+                return jsonRes(res, 500, createErrorResponse(error.message));
+            }
         }
 
         // ===== Word/Excel 导出 API =====

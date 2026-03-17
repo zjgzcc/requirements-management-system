@@ -2,8 +2,20 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>首页 - 需求管理系统</title>
+    
+    <!-- PWA 支持 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="需求管理">
+    
+    <!-- 移动端样式 -->
+    <link rel="stylesheet" href="/mobile.css">
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -517,6 +529,13 @@
 <body>
     <!-- 顶部导航栏 -->
     <header class="header">
+        <!-- 汉堡菜单按钮 (移动端) -->
+        <button class="hamburger-menu mobile-only" aria-label="菜单">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        
         <div class="logo">
             <span class="logo-icon">🦞</span>
             <h1>需求管理系统</h1>
@@ -532,6 +551,29 @@
             </div>
         </div>
     </header>
+
+    <!-- 移动端侧边导航 -->
+    <nav class="mobile-sidebar mobile-only">
+        <div style="padding: 20px; border-bottom: 1px solid #eee;">
+            <div class="logo" style="display: flex; align-items: center; gap: 12px;">
+                <span class="logo-icon">🦞</span>
+                <h1 style="font-size: 18px; color: #333;">需求管理系统</h1>
+            </div>
+        </div>
+        <div style="padding: 10px 0;">
+            <a href="/home.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none; border-left: 3px solid #667eea; background: #f8f9ff;">🏠 首页</a>
+            <a href="/requirements.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">📋 需求</a>
+            <a href="/tasks.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">✅ 任务</a>
+            <a href="/testcases.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">🧪 测试用例</a>
+            <a href="/defects.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">🐛 缺陷</a>
+            <a href="/templates.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">📄 模板</a>
+            <a href="/custom-fields.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">🔧 自定义字段</a>
+            <a href="/audit.html" style="display: block; padding: 14px 20px; color: #333; text-decoration: none;">🔍 审计</a>
+        </div>
+    </nav>
+
+    <!-- 侧边栏遮罩层 -->
+    <div class="sidebar-overlay mobile-only"></div>
 
     <!-- 主内容区 -->
     <div class="main-container">
@@ -1349,6 +1391,20 @@
             sessionStorage.removeItem('currentUser');
             window.location.href = 'login.html';
         }
+    </script>
+    
+    <!-- 移动端交互脚本 -->
+    <script src="/mobile.js" defer></script>
+    
+    <!-- PWA Service Worker 注册 -->
+    <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker 注册成功:', reg.scope))
+          .catch(err => console.log('Service Worker 注册失败:', err));
+      });
+    }
     </script>
 </body>
 </html>
