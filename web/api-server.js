@@ -41,6 +41,9 @@ const {
     licenseAPI
 } = require('./license-manager');
 
+// AI 智能助手
+const aiAssistant = require('./ai-assistant');
+
 const PORT = 8001;
 const WEB_DIR = __dirname;
 const DATA_FILE = path.join(__dirname, 'users.json');
@@ -54,6 +57,9 @@ const HISTORY_FILE = path.join(__dirname, 'history.json');
 const HEADERS_FILE = path.join(__dirname, 'headers.json');
 const PREFIXES_FILE = path.join(__dirname, 'prefixes.json');
 const NAVIGATION_FILE = path.join(__dirname, 'navigation.json');
+const TASKS_FILE = path.join(__dirname, 'tasks.json');
+const DEFECTS_FILE = path.join(__dirname, 'defects.json');
+const AI_CACHE_FILE = path.join(__dirname, 'ai-cache.json');
 
 // MIME 类型映射
 const mimeTypes = {
@@ -92,9 +98,11 @@ let traces = initializeFile(TRACES_FILE, []);
 let baselines = initializeFile(BASELINES_FILE, []);
 let history = initializeFile(HISTORY_FILE, []);
 let headers = initializeFile(HEADERS_FILE, []);
-let prefixes = initializeFile(PREFIXES_FILE, { requirement: 'REQ', testcase: 'TC' });
+let prefixes = initializeFile(PREFIXES_FILE, { requirement: 'REQ', testcase: 'TC', defect: 'DEF' });
 let navigation = initializeFile(NAVIGATION_FILE, []); // 导航树数据
-let idCounter = initializeFile(ID_COUNTER_FILE, { requirement: 0, testcase: 0 });
+let idCounter = initializeFile(ID_COUNTER_FILE, { requirement: 0, testcase: 0, defect: 0 });
+let tasksData = initializeFile(TASKS_FILE, { tasks: [], users: [], projects: [] });
+let defects = initializeFile(DEFECTS_FILE, []); // 缺陷数据
 
 // 初始化默认用户
 if (users.length === 0) {
@@ -222,6 +230,8 @@ function saveData() {
     fs.writeFileSync(HEADERS_FILE, JSON.stringify(headers, null, 2));
     fs.writeFileSync(PREFIXES_FILE, JSON.stringify(prefixes, null, 2));
     fs.writeFileSync(ID_COUNTER_FILE, JSON.stringify(idCounter, null, 2));
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(tasksData, null, 2));
+    fs.writeFileSync(DEFECTS_FILE, JSON.stringify(defects, null, 2));
 }
 
 // 生成唯一 ID
@@ -1146,6 +1156,411 @@ async function handleApiRequest(req, res, fullUrl) {
                 success: true, 
                 data: executionHistory.sort((a, b) => new Date(b.executedAt) - new Date(a.executedAt)) 
             });
+        }
+
+        // ===== 缺陷管理 API =====
+        // 获取缺陷列表
+        if (url === '/api/defects' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const status = urlObj.searchParams.get('status');
+            const severity = urlObj.searchParams.get('severity');
+            const assignee = urlObj.searchParams.get('assignee');
+            
+            let filteredDefects = defects;
+            if (projectId) {
+                filteredDefects = filteredDefects.filter(d => d.projectId === projectId);
+            }
+            if (status) {
+                filteredDefects = filteredDefects.filter(d => d.status === status);
+            }
+            if (severity) {
+                filteredDefects = filteredDefects.filter(d => d.severity === severity);
+            }
+            if (assignee) {
+                filteredDefects = filteredDefects.filter(d => d.assignee?.id === assignee);
+            }
+            
+            return jsonRes(res, 200, { success: true, data: filteredDefects.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+        }
+
+        // 创建缺陷
+        if (url === '/api/defects' && method === 'POST') {
+            const body = await parseBody(req);
+            const { projectId, title, description, severity, priority, type, steps, expectedResult, actualResult, environment, relatedRequirement, relatedTestcase, relatedTask, attachments } = body;
+
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
+            }
+            if (!title) {
+                return jsonRes(res, 400, { success: false, message: '缺陷标题不能为空' });
+            }
+
+            const nextId = getNextId('defect');
+            const defectId = `DEF-${nextId}`;
+
+            // 获取当前用户（从 session）
+            const token = getSessionFromHeaders(req);
+            const session = verifySession(token);
+            const currentUser = session ? users.find(u => u.id === session.userId) : null;
+
+            const newDefect = {
+                id: generateUniqueId(),
+                defectId,
+                projectId,
+                title: title || '',
+                description: description || '',
+                severity: severity || 'normal',
+                priority: priority || 'medium',
+                status: 'new',
+                type: type || 'function',
+                reporter: currentUser ? { id: currentUser.id, name: currentUser.username, avatar: '' } : { id: 'system', name: 'System', avatar: '' },
+                assignee: null,
+                verifier: null,
+                ccUsers: [],
+                steps: steps || [],
+                expectedResult: expectedResult || '',
+                actualResult: actualResult || '',
+                environment: environment || '',
+                relatedRequirement: relatedRequirement || null,
+                relatedTestcase: relatedTestcase || null,
+                relatedTask: relatedTask || null,
+                attachments: attachments || [],
+                comments: [],
+                history: [{
+                    id: generateUniqueId(),
+                    action: 'created',
+                    field: null,
+                    oldValue: null,
+                    newValue: null,
+                    userId: currentUser ? currentUser.id : 'system',
+                    userName: currentUser ? currentUser.username : 'System',
+                    timestamp: new Date().toISOString()
+                }],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                closedAt: null
+            };
+
+            defects.push(newDefect);
+            recordHistory('defect', newDefect.id, 'create', { title, severity, priority });
+            saveData();
+
+            return jsonRes(res, 201, { success: true, message: '缺陷创建成功', data: newDefect });
+        }
+
+        // 获取单个缺陷
+        if (url.match(/^\/api\/defects\/[^\/]+$/) && method === 'GET') {
+            const defectId = url.split('/')[3];
+            const defect = defects.find(d => d.id === defectId);
+            
+            if (!defect) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+            
+            return jsonRes(res, 200, { success: true, data: defect });
+        }
+
+        // 更新缺陷
+        if (url.match(/^\/api\/defects\/[^\/]+$/) && method === 'PUT') {
+            const defectId = url.split('/')[3];
+            const defectIndex = defects.findIndex(d => d.id === defectId);
+            
+            if (defectIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+
+            const oldData = JSON.parse(JSON.stringify(defects[defectIndex]));
+            const body = await parseBody(req);
+            const { title, description, severity, priority, status, type, steps, expectedResult, actualResult, environment, assignee, verifier, relatedRequirement, relatedTestcase, relatedTask } = body;
+
+            const token = getSessionFromHeaders(req);
+            const session = verifySession(token);
+            const currentUser = session ? users.find(u => u.id === session.userId) : null;
+            const historyEntry = {
+                id: generateUniqueId(),
+                timestamp: new Date().toISOString(),
+                userId: currentUser ? currentUser.id : 'system',
+                userName: currentUser ? currentUser.username : 'System'
+            };
+
+            // P0 字段
+            if (title !== undefined) {
+                defects[defectIndex].title = title;
+                defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'title', oldValue: oldData.title, newValue: title });
+            }
+            if (status !== undefined) {
+                const oldStatus = defects[defectIndex].status;
+                defects[defectIndex].status = status;
+                defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'status', oldValue: oldStatus, newValue: status });
+                if (status === 'closed' || status === 'rejected') {
+                    defects[defectIndex].closedAt = new Date().toISOString();
+                }
+            }
+            if (severity !== undefined) {
+                defects[defectIndex].severity = severity;
+                defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'severity', oldValue: oldData.severity, newValue: severity });
+            }
+            if (priority !== undefined) {
+                defects[defectIndex].priority = priority;
+                defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'priority', oldValue: oldData.priority, newValue: priority });
+            }
+            
+            // 其他字段
+            if (description !== undefined) defects[defectIndex].description = description;
+            if (type !== undefined) defects[defectIndex].type = type;
+            if (steps !== undefined) defects[defectIndex].steps = steps;
+            if (expectedResult !== undefined) defects[defectIndex].expectedResult = expectedResult;
+            if (actualResult !== undefined) defects[defectIndex].actualResult = actualResult;
+            if (environment !== undefined) defects[defectIndex].environment = environment;
+            if (assignee !== undefined) {
+                const oldAssignee = defects[defectIndex].assignee;
+                defects[defectIndex].assignee = assignee;
+                if (assignee) {
+                    defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'assignee', oldValue: oldAssignee, newValue: assignee });
+                }
+            }
+            if (verifier !== undefined) {
+                defects[defectIndex].verifier = verifier;
+                if (verifier) {
+                    defects[defectIndex].history.push({ ...historyEntry, action: 'update', field: 'verifier', oldValue: oldData.verifier, newValue: verifier });
+                }
+            }
+            if (relatedRequirement !== undefined) defects[defectIndex].relatedRequirement = relatedRequirement;
+            if (relatedTestcase !== undefined) defects[defectIndex].relatedTestcase = relatedTestcase;
+            if (relatedTask !== undefined) defects[defectIndex].relatedTask = relatedTask;
+            
+            defects[defectIndex].updatedAt = new Date().toISOString();
+            recordHistory('defect', defectId, 'update', { oldData, newData: body });
+            saveData();
+
+            return jsonRes(res, 200, { success: true, message: '缺陷更新成功', data: defects[defectIndex] });
+        }
+
+        // 删除缺陷
+        if (url.match(/^\/api\/defects\/[^\/]+$/) && method === 'DELETE') {
+            const defectId = url.split('/')[3];
+            const defectIndex = defects.findIndex(d => d.id === defectId);
+            
+            if (defectIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+
+            recordHistory('defect', defectId, 'delete', { deletedData: defects[defectIndex] });
+            defects.splice(defectIndex, 1);
+            saveData();
+
+            return jsonRes(res, 200, { success: true, message: '缺陷已删除' });
+        }
+
+        // 获取缺陷评论
+        if (url.match(/^\/api\/defects\/[^\/]+\/comments$/) && method === 'GET') {
+            const defectId = url.split('/')[3];
+            const defect = defects.find(d => d.id === defectId);
+            
+            if (!defect) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+            
+            return jsonRes(res, 200, { success: true, data: defect.comments || [] });
+        }
+
+        // 添加缺陷评论
+        if (url.match(/^\/api\/defects\/[^\/]+\/comments$/) && method === 'POST') {
+            const defectId = url.split('/')[3];
+            const defectIndex = defects.findIndex(d => d.id === defectId);
+            
+            if (defectIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+
+            const body = await parseBody(req);
+            const { content, attachments } = body;
+
+            if (!content) {
+                return jsonRes(res, 400, { success: false, message: '评论内容不能为空' });
+            }
+
+            const token = getSessionFromHeaders(req);
+            const session = verifySession(token);
+            const currentUser = session ? users.find(u => u.id === session.userId) : null;
+
+            const newComment = {
+                id: generateUniqueId(),
+                content,
+                attachments: attachments || [],
+                userId: currentUser ? currentUser.id : 'system',
+                userName: currentUser ? currentUser.username : 'System',
+                userAvatar: currentUser?.avatar || '',
+                createdAt: new Date().toISOString()
+            };
+
+            if (!defects[defectIndex].comments) {
+                defects[defectIndex].comments = [];
+            }
+            defects[defectIndex].comments.push(newComment);
+            defects[defectIndex].updatedAt = new Date().toISOString();
+            saveData();
+
+            return jsonRes(res, 201, { success: true, message: '评论添加成功', data: newComment });
+        }
+
+        // 获取缺陷统计
+        if (url === '/api/defects/stats' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            let filteredDefects = defects;
+            if (projectId) {
+                filteredDefects = filteredDefects.filter(d => d.projectId === projectId);
+            }
+
+            // 按状态统计
+            const byStatus = {};
+            filteredDefects.forEach(d => {
+                byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+            });
+
+            // 按严重程度统计
+            const bySeverity = {};
+            filteredDefects.forEach(d => {
+                bySeverity[d.severity] = (bySeverity[d.severity] || 0) + 1;
+            });
+
+            // 按负责人统计
+            const byAssignee = {};
+            filteredDefects.forEach(d => {
+                const assigneeName = d.assignee?.name || '未分配';
+                byAssignee[assigneeName] = (byAssignee[assigneeName] || 0) + 1;
+            });
+
+            // 按类型统计
+            const byType = {};
+            filteredDefects.forEach(d => {
+                byType[d.type] = (byType[d.type] || 0) + 1;
+            });
+
+            // 趋势统计（最近 7 天）
+            const now = new Date();
+            const trend = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const nextDate = new Date(date);
+                nextDate.setDate(nextDate.getDate() + 1);
+                
+                const newCount = filteredDefects.filter(d => {
+                    const createdAt = new Date(d.createdAt);
+                    return createdAt >= date && createdAt < nextDate;
+                }).length;
+                
+                const closedCount = filteredDefects.filter(d => {
+                    if (!d.closedAt) return false;
+                    const closedAt = new Date(d.closedAt);
+                    return closedAt >= date && closedAt < nextDate;
+                }).length;
+                
+                trend.push({
+                    date: dateStr,
+                    newCount,
+                    closedCount
+                });
+            }
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: {
+                    total: filteredDefects.length,
+                    byStatus,
+                    bySeverity,
+                    byAssignee,
+                    byType,
+                    trend
+                } 
+            });
+        }
+
+        // 获取缺陷看板数据
+        if (url === '/api/defects/board' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            let filteredDefects = defects;
+            if (projectId) {
+                filteredDefects = filteredDefects.filter(d => d.projectId === projectId);
+            }
+
+            // 按状态分组
+            const board = {
+                new: filteredDefects.filter(d => d.status === 'new'),
+                confirmed: filteredDefects.filter(d => d.status === 'confirmed'),
+                assigned: filteredDefects.filter(d => d.status === 'assigned'),
+                in_progress: filteredDefects.filter(d => d.status === 'in_progress'),
+                resolved: filteredDefects.filter(d => d.status === 'resolved'),
+                verified: filteredDefects.filter(d => d.status === 'verified'),
+                closed: filteredDefects.filter(d => d.status === 'closed'),
+                rejected: filteredDefects.filter(d => d.status === 'rejected')
+            };
+
+            return jsonRes(res, 200, { success: true, data: board });
+        }
+
+        // 缺陷状态流转 API
+        if (url.match(/^\/api\/defects\/[^\/]+\/transition$/) && method === 'POST') {
+            const defectId = url.split('/')[3];
+            const defectIndex = defects.findIndex(d => d.id === defectId);
+            
+            if (defectIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '缺陷不存在' });
+            }
+
+            const body = await parseBody(req);
+            const { targetStatus, comment } = body;
+
+            const validTransitions = {
+                'new': ['confirmed', 'rejected'],
+                'confirmed': ['assigned', 'rejected'],
+                'assigned': ['in_progress', 'rejected'],
+                'in_progress': ['resolved', 'in_progress'],
+                'resolved': ['verified', 'reopened'],
+                'verified': ['closed', 'reopened'],
+                'closed': ['reopened'],
+                'rejected': ['reopened']
+            };
+
+            const currentStatus = defects[defectIndex].status;
+            if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(targetStatus)) {
+                return jsonRes(res, 400, { success: false, message: `无效的状态流转：${currentStatus} -> ${targetStatus}` });
+            }
+
+            const token = getSessionFromHeaders(req);
+            const session = verifySession(token);
+            const currentUser = session ? users.find(u => u.id === session.userId) : null;
+
+            const oldStatus = defects[defectIndex].status;
+            defects[defectIndex].status = targetStatus;
+            defects[defectIndex].history.push({
+                id: generateUniqueId(),
+                action: 'transition',
+                field: 'status',
+                oldValue: oldStatus,
+                newValue: targetStatus,
+                userId: currentUser ? currentUser.id : 'system',
+                userName: currentUser ? currentUser.username : 'System',
+                timestamp: new Date().toISOString(),
+                comment: comment || ''
+            });
+            
+            if (targetStatus === 'closed' || targetStatus === 'rejected') {
+                defects[defectIndex].closedAt = new Date().toISOString();
+            }
+            
+            defects[defectIndex].updatedAt = new Date().toISOString();
+            recordHistory('defect', defectId, 'transition', { from: oldStatus, to: targetStatus });
+            saveData();
+
+            return jsonRes(res, 200, { success: true, message: '状态流转成功', data: defects[defectIndex] });
         }
 
         // ===== 追踪关系 API =====
@@ -3214,6 +3629,593 @@ async function handleApiRequest(req, res, fullUrl) {
             return licenseAPI(req, res);
         }
 
+        // ===== Word/Excel 导出 API =====
+        // 导出 Word 文档
+        if (url === '/api/export/word' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const reqIds = urlObj.searchParams.get('reqIds'); // 可选，导出指定需求
+            const tcIds = urlObj.searchParams.get('tcIds'); // 可选，导出指定用例
+            
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
+            }
+            
+            const project = projects.find(p => p.id === projectId);
+            if (!project) {
+                return jsonRes(res, 404, { success: false, message: '项目不存在' });
+            }
+            
+            let exportReqs = requirements.filter(r => r.projectId === projectId);
+            let exportTcs = testcases.filter(t => t.projectId === projectId);
+            let exportTraces = traces.filter(t => 
+                exportReqs.some(r => r.id === t.requirementId) && 
+                exportTcs.some(tc => tc.id === t.testcaseId)
+            );
+            
+            // 如果指定了 ID 列表，只导出这些
+            if (reqIds) {
+                const idList = reqIds.split(',');
+                exportReqs = exportReqs.filter(r => idList.includes(r.id));
+                exportTraces = exportTraces.filter(t => idList.includes(t.requirementId));
+            }
+            if (tcIds) {
+                const idList = tcIds.split(',');
+                exportTcs = exportTcs.filter(t => idList.includes(t.id));
+                exportTraces = exportTraces.filter(t => idList.includes(t.testcaseId));
+            }
+            
+            try {
+                const buffer = await generateWordDocument(project, exportReqs, exportTcs, exportTraces, {
+                    includeRequirements: true,
+                    includeTestcases: true,
+                    includeTraceMatrix: true,
+                    groupByHeader: true
+                });
+                
+                const filename = `${project.name}_需求规格说明书_${new Date().toISOString().split('T')[0]}.docx`;
+                
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+                res.writeHead(200);
+                res.end(buffer);
+                return;
+            } catch (error) {
+                logError(error, { type: 'word_export', projectId });
+                return jsonRes(res, 500, { success: false, message: 'Word 导出失败：' + error.message });
+            }
+        }
+        
+        // 导出 Excel 文档
+        if (url === '/api/export/excel' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const reqIds = urlObj.searchParams.get('reqIds');
+            const tcIds = urlObj.searchParams.get('tcIds');
+            
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
+            }
+            
+            const project = projects.find(p => p.id === projectId);
+            if (!project) {
+                return jsonRes(res, 404, { success: false, message: '项目不存在' });
+            }
+            
+            let exportReqs = requirements.filter(r => r.projectId === projectId);
+            let exportTcs = testcases.filter(t => t.projectId === projectId);
+            let exportTraces = traces.filter(t => 
+                exportReqs.some(r => r.id === t.requirementId) && 
+                exportTcs.some(tc => tc.id === t.testcaseId)
+            );
+            
+            if (reqIds) {
+                const idList = reqIds.split(',');
+                exportReqs = exportReqs.filter(r => idList.includes(r.id));
+                exportTraces = exportTraces.filter(t => idList.includes(t.requirementId));
+            }
+            if (tcIds) {
+                const idList = tcIds.split(',');
+                exportTcs = exportTcs.filter(t => idList.includes(t.id));
+                exportTraces = exportTraces.filter(t => idList.includes(t.testcaseId));
+            }
+            
+            try {
+                const buffer = generateExcelDocument(project, exportReqs, exportTcs, exportTraces, {
+                    includeRequirements: true,
+                    includeTestcases: true,
+                    includeTraceMatrix: true,
+                    groupByHeader: true
+                });
+                
+                const filename = `${project.name}_需求用例导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+                
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+                res.writeHead(200);
+                res.end(buffer);
+                return;
+            } catch (error) {
+                logError(error, { type: 'excel_export', projectId });
+                return jsonRes(res, 500, { success: false, message: 'Excel 导出失败：' + error.message });
+            }
+        }
+        
+        // 批量导出（支持多个项目）
+        if (url === '/api/export/batch' && method === 'POST') {
+            const body = await parseBody(req);
+            const { projectIds, format = 'excel', includeRequirements = true, includeTestcases = true } = body;
+            
+            if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 列表不能为空' });
+            }
+            
+            try {
+                const exportProjects = projects.filter(p => projectIds.includes(p.id));
+                
+                if (exportProjects.length === 0) {
+                    return jsonRes(res, 404, { success: false, message: '未找到指定项目' });
+                }
+                
+                if (format === 'excel') {
+                    const workbook = XLSX.utils.book_new();
+                    
+                    for (const project of exportProjects) {
+                        const exportReqs = requirements.filter(r => r.projectId === project.id);
+                        const exportTcs = testcases.filter(t => t.projectId === project.id);
+                        const exportTraces = traces.filter(t => 
+                            exportReqs.some(r => r.id === t.requirementId) && 
+                            exportTcs.some(tc => tc.id === t.testcaseId)
+                        );
+                        
+                        // 为每个项目创建一个工作表
+                        if (includeRequirements && exportReqs.length > 0) {
+                            const reqData = [['需求 ID', '标题', '分类', '状态', '优先级', '描述']];
+                            exportReqs.forEach(req => {
+                                reqData.push([
+                                    req.reqId,
+                                    req.title || '',
+                                    req.category || '',
+                                    req.status || '',
+                                    req.priority || '',
+                                    stripHtml(req.description || '')
+                                ]);
+                            });
+                            
+                            const reqWorksheet = XLSX.utils.aoa_to_sheet(reqData);
+                            XLSX.utils.book_append_sheet(workbook, reqWorksheet, `${project.name}-需求`);
+                        }
+                        
+                        if (includeTestcases && exportTcs.length > 0) {
+                            const tcData = [['用例 ID', '类型', '状态', '步骤', '预期结果']];
+                            exportTcs.forEach(tc => {
+                                tcData.push([
+                                    tc.tcId,
+                                    tc.type || '',
+                                    tc.status || '',
+                                    stripHtml(tc.steps || ''),
+                                    stripHtml(tc.expectedResult || '')
+                                ]);
+                            });
+                            
+                            const tcWorksheet = XLSX.utils.aoa_to_sheet(tcData);
+                            XLSX.utils.book_append_sheet(workbook, tcWorksheet, `${project.name}-用例`);
+                        }
+                    }
+                    
+                    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+                    const filename = `批量导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    
+                    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+                    res.writeHead(200);
+                    res.end(buffer);
+                    return;
+                } else {
+                    return jsonRes(res, 400, { success: false, message: '暂不支持批量 Word 导出' });
+                }
+            } catch (error) {
+                logError(error, { type: 'batch_export' });
+                return jsonRes(res, 500, { success: false, message: '批量导出失败：' + error.message });
+            }
+        }
+        
+        // 自定义模板导出
+        if (url === '/api/export/custom' && method === 'POST') {
+            const body = await parseBody(req);
+            const { projectId, template } = body;
+            
+            if (!projectId || !template) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整' });
+            }
+            
+            const project = projects.find(p => p.id === projectId);
+            if (!project) {
+                return jsonRes(res, 404, { success: false, message: '项目不存在' });
+            }
+            
+            const exportReqs = requirements.filter(r => r.projectId === projectId);
+            const exportTcs = testcases.filter(t => t.projectId === projectId);
+            const exportTraces = traces.filter(t => 
+                exportReqs.some(r => r.id === t.requirementId) && 
+                exportTcs.some(tc => tc.id === t.testcaseId)
+            );
+            
+            try {
+                const buffer = await generateCustomTemplateDocument(project, exportReqs, exportTcs, exportTraces, template);
+                
+                const filename = `${project.name}_自定义导出_${new Date().toISOString().split('T')[0]}.${template.format === 'word' ? 'docx' : 'xlsx'}`;
+                const contentType = template.format === 'word' 
+                    ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                
+                res.setHeader('Content-Type', contentType);
+                res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+                res.writeHead(200);
+                res.end(buffer);
+                return;
+            } catch (error) {
+                logError(error, { type: 'custom_export' });
+                return jsonRes(res, 500, { success: false, message: '自定义导出失败：' + error.message });
+            }
+        }
+
+        // ===== 任务管理 API =====
+        // 获取任务列表（支持项目筛选、状态筛选、负责人筛选）
+        if (url === '/api/tasks' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const status = urlObj.searchParams.get('status');
+            const assignee = urlObj.searchParams.get('assignee');
+            const priority = urlObj.searchParams.get('priority');
+            
+            let filteredTasks = tasksData.tasks || [];
+            
+            if (projectId) {
+                filteredTasks = filteredTasks.filter(t => t.projectId === projectId);
+            }
+            if (status) {
+                filteredTasks = filteredTasks.filter(t => t.status === status);
+            }
+            if (assignee) {
+                filteredTasks = filteredTasks.filter(t => t.assignee === assignee);
+            }
+            if (priority) {
+                filteredTasks = filteredTasks.filter(t => t.priority === priority);
+            }
+            
+            // 按优先级和截止日期排序
+            filteredTasks.sort((a, b) => {
+                const priorityOrder = { 'urgent': 0, 'high': 1, 'medium': 2, 'low': 3 };
+                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
+                }
+                return new Date(a.dueDate || '9999-12-31') - new Date(b.dueDate || '9999-12-31');
+            });
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: filteredTasks,
+                users: tasksData.users || [],
+                projects: tasksData.projects || []
+            });
+        }
+
+        // 创建任务
+        if (url === '/api/tasks' && method === 'POST') {
+            const body = await parseBody(req);
+            const { 
+                title, description, projectId, parentId, 
+                assignee, priority, status, dueDate,
+                estimatedHours, tags 
+            } = body;
+
+            if (!title) {
+                return jsonRes(res, 400, { success: false, message: '任务标题不能为空' });
+            }
+
+            const newTask = {
+                id: generateUniqueId(),
+                title,
+                description: description || '',
+                projectId: projectId || '',
+                parentId: parentId || null,
+                assignee: assignee || '',
+                priority: priority || 'medium',
+                status: status || 'todo',
+                progress: 0,
+                dueDate: dueDate || null,
+                estimatedHours: estimatedHours || 0,
+                actualHours: 0,
+                tags: tags || [],
+                comments: [],
+                completedAt: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'admin'
+            };
+
+            if (!tasksData.tasks) tasksData.tasks = [];
+            tasksData.tasks.push(newTask);
+            saveData();
+
+            return jsonRes(res, 201, { success: true, message: '任务创建成功', data: newTask });
+        }
+
+        // 更新任务
+        if (url.match(/^\/api\/tasks\/[^\/]+$/) && method === 'PUT') {
+            const taskId = url.split('/')[3];
+            const body = await parseBody(req);
+            const taskIndex = (tasksData.tasks || []).findIndex(t => t.id === taskId);
+            
+            if (taskIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '任务不存在' });
+            }
+
+            const oldData = JSON.parse(JSON.stringify(tasksData.tasks[taskIndex]));
+            const { 
+                title, description, projectId, parentId, assignee, 
+                priority, status, progress, dueDate, estimatedHours, 
+                actualHours, tags, completed 
+            } = body;
+
+            if (title !== undefined) tasksData.tasks[taskIndex].title = title;
+            if (description !== undefined) tasksData.tasks[taskIndex].description = description;
+            if (projectId !== undefined) tasksData.tasks[taskIndex].projectId = projectId;
+            if (parentId !== undefined) tasksData.tasks[taskIndex].parentId = parentId;
+            if (assignee !== undefined) tasksData.tasks[taskIndex].assignee = assignee;
+            if (priority !== undefined) tasksData.tasks[taskIndex].priority = priority;
+            if (status !== undefined) {
+                tasksData.tasks[taskIndex].status = status;
+                if (status === 'done' && !oldData.completedAt) {
+                    tasksData.tasks[taskIndex].completedAt = new Date().toISOString();
+                }
+            }
+            if (progress !== undefined) tasksData.tasks[taskIndex].progress = progress;
+            if (dueDate !== undefined) tasksData.tasks[taskIndex].dueDate = dueDate;
+            if (estimatedHours !== undefined) tasksData.tasks[taskIndex].estimatedHours = estimatedHours;
+            if (actualHours !== undefined) tasksData.tasks[taskIndex].actualHours = actualHours;
+            if (tags !== undefined) tasksData.tasks[taskIndex].tags = tags;
+            
+            tasksData.tasks[taskIndex].updatedAt = new Date().toISOString();
+            saveData();
+
+            return jsonRes(res, 200, { success: true, message: '任务更新成功', data: tasksData.tasks[taskIndex] });
+        }
+
+        // 删除任务
+        if (url.match(/^\/api\/tasks\/[^\/]+$/) && method === 'DELETE') {
+            const taskId = url.split('/')[3];
+            const taskIndex = (tasksData.tasks || []).findIndex(t => t.id === taskId);
+            
+            if (taskIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '任务不存在' });
+            }
+
+            // 检查是否有子任务
+            const hasChildren = (tasksData.tasks || []).some(t => t.parentId === taskId);
+            if (hasChildren) {
+                return jsonRes(res, 400, { success: false, message: '请先删除或移动子任务' });
+            }
+
+            tasksData.tasks.splice(taskIndex, 1);
+            saveData();
+
+            return jsonRes(res, 200, { success: true, message: '任务已删除' });
+        }
+
+        // 获取任务统计
+        if (url === '/api/tasks/stats' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            let filteredTasks = tasksData.tasks || [];
+            if (projectId) {
+                filteredTasks = filteredTasks.filter(t => t.projectId === projectId);
+            }
+
+            const users = tasksData.users || [];
+            
+            // 按状态统计
+            const byStatus = {
+                todo: filteredTasks.filter(t => t.status === 'todo').length,
+                inProgress: filteredTasks.filter(t => t.status === 'inProgress').length,
+                done: filteredTasks.filter(t => t.status === 'done').length,
+                blocked: filteredTasks.filter(t => t.status === 'blocked').length
+            };
+
+            // 按负责人统计
+            const byAssignee = users.map(user => ({
+                userId: user.id,
+                userName: user.name,
+                avatar: user.avatar,
+                total: filteredTasks.filter(t => t.assignee === user.id).length,
+                todo: filteredTasks.filter(t => t.assignee === user.id && t.status === 'todo').length,
+                inProgress: filteredTasks.filter(t => t.assignee === user.id && t.status === 'inProgress').length,
+                done: filteredTasks.filter(t => t.assignee === user.id && t.status === 'done').length,
+                blocked: filteredTasks.filter(t => t.assignee === user.id && t.status === 'blocked').length
+            }));
+
+            // 按优先级统计
+            const byPriority = {
+                urgent: filteredTasks.filter(t => t.priority === 'urgent').length,
+                high: filteredTasks.filter(t => t.priority === 'high').length,
+                medium: filteredTasks.filter(t => t.priority === 'medium').length,
+                low: filteredTasks.filter(t => t.priority === 'low').length
+            };
+
+            // 完成率
+            const total = filteredTasks.length;
+            const completed = byStatus.done;
+            const completionRate = total > 0 ? Math.round(completed / total * 100) : 0;
+
+            // 阻塞任务告警
+            const blockedTasks = filteredTasks.filter(t => t.status === 'blocked');
+
+            // 即将到期任务（3 天内）
+            const now = new Date();
+            const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            const dueSoonTasks = filteredTasks.filter(t => {
+                if (!t.dueDate || t.status === 'done') return false;
+                const dueDate = new Date(t.dueDate);
+                return dueDate <= threeDaysLater && dueDate >= now;
+            });
+
+            // 已过期任务
+            const overdueTasks = filteredTasks.filter(t => {
+                if (!t.dueDate || t.status === 'done') return false;
+                return new Date(t.dueDate) < now;
+            });
+
+            return jsonRes(res, 200, {
+                success: true,
+                data: {
+                    summary: {
+                        total,
+                        completed,
+                        completionRate,
+                        todo: byStatus.todo,
+                        inProgress: byStatus.inProgress,
+                        blocked: byStatus.blocked,
+                        overdue: overdueTasks.length
+                    },
+                    byStatus,
+                    byAssignee,
+                    byPriority,
+                    alerts: {
+                        blocked: blockedTasks.map(t => ({
+                            id: t.id,
+                            title: t.title,
+                            assignee: t.assignee,
+                            dueDate: t.dueDate
+                        })),
+                        dueSoon: dueSoonTasks.map(t => ({
+                            id: t.id,
+                            title: t.title,
+                            assignee: t.assignee,
+                            dueDate: t.dueDate
+                        })),
+                        overdue: overdueTasks.map(t => ({
+                            id: t.id,
+                            title: t.title,
+                            assignee: t.assignee,
+                            dueDate: t.dueDate
+                        }))
+                    }
+                }
+            });
+        }
+
+        // 获取看板视图数据
+        if (url === '/api/tasks/board' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const groupBy = urlObj.searchParams.get('groupBy') || 'status'; // status or assignee
+            
+            let filteredTasks = tasksData.tasks || [];
+            if (projectId) {
+                filteredTasks = filteredTasks.filter(t => t.projectId === projectId);
+            }
+
+            const users = tasksData.users || [];
+            const projects = tasksData.projects || [];
+
+            // 构建树形结构（父子任务）
+            const taskTree = {};
+            const rootTasks = [];
+            
+            filteredTasks.forEach(task => {
+                taskTree[task.id] = { ...task, children: [] };
+            });
+            
+            filteredTasks.forEach(task => {
+                if (task.parentId && taskTree[task.parentId]) {
+                    taskTree[task.parentId].children.push(taskTree[task.id]);
+                } else if (!task.parentId) {
+                    rootTasks.push(taskTree[task.id]);
+                }
+            });
+
+            // 按状态分组
+            const byStatus = {
+                todo: rootTasks.filter(t => t.status === 'todo'),
+                inProgress: rootTasks.filter(t => t.status === 'inProgress'),
+                done: rootTasks.filter(t => t.status === 'done'),
+                blocked: rootTasks.filter(t => t.status === 'blocked')
+            };
+
+            // 按负责人分组
+            const byAssignee = {};
+            users.forEach(user => {
+                byAssignee[user.id] = {
+                    user,
+                    tasks: rootTasks.filter(t => t.assignee === user.id)
+                };
+            });
+
+            return jsonRes(res, 200, {
+                success: true,
+                data: {
+                    groupBy,
+                    columns: groupBy === 'status' ? {
+                        todo: { title: '待办', tasks: byStatus.todo, color: '#6b7280' },
+                        inProgress: { title: '进行中', tasks: byStatus.inProgress, color: '#3b82f6' },
+                        done: { title: '已完成', tasks: byStatus.done, color: '#10b981' },
+                        blocked: { title: '已阻塞', tasks: byStatus.blocked, color: '#ef4444' }
+                    } : {
+                        byAssignee,
+                        unassigned: { title: '未分配', tasks: rootTasks.filter(t => !t.assignee), color: '#9ca3af' }
+                    },
+                    users,
+                    projects,
+                    taskTree
+                }
+            });
+        }
+
+        // 添加任务评论
+        if (url.match(/^\/api\/tasks\/[^\/]+\/comments$/) && method === 'POST') {
+            const taskId = url.split('/')[3];
+            const body = await parseBody(req);
+            const taskIndex = (tasksData.tasks || []).findIndex(t => t.id === taskId);
+            
+            if (taskIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '任务不存在' });
+            }
+
+            const { content, author } = body;
+            
+            if (!content) {
+                return jsonRes(res, 400, { success: false, message: '评论内容不能为空' });
+            }
+
+            const comment = {
+                id: generateUniqueId(),
+                content,
+                author: author || 'admin',
+                createdAt: new Date().toISOString()
+            };
+
+            if (!tasksData.tasks[taskIndex].comments) {
+                tasksData.tasks[taskIndex].comments = [];
+            }
+            tasksData.tasks[taskIndex].comments.push(comment);
+            tasksData.tasks[taskIndex].updatedAt = new Date().toISOString();
+            saveData();
+
+            return jsonRes(res, 201, { success: true, message: '评论添加成功', data: comment });
+        }
+
+        // 获取用户列表
+        if (url === '/api/tasks/users' && method === 'GET') {
+            return jsonRes(res, 200, { success: true, data: tasksData.users || [] });
+        }
+
+        // 获取项目列表
+        if (url === '/api/tasks/projects' && method === 'GET') {
+            return jsonRes(res, 200, { success: true, data: tasksData.projects || [] });
+        }
+
         // 健康检查
         if (url === '/api/health' && method === 'GET') {
             const licenseStatus = validateLicense();
@@ -3309,6 +4311,349 @@ async function handleApiRequest(req, res, fullUrl) {
                     itemId: h.itemId
                 }))
             }, '仪表盘统计数据'));
+        }
+
+        // ===== AI 智能助手 API =====
+        // 1. AI 需求生成
+        if (url === '/api/ai/generate-requirement' && method === 'POST') {
+            const body = await parseBody(req);
+            const { userInput } = body;
+            
+            if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
+                return jsonRes(res, 400, createErrorResponse('用户输入不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                const result = await aiAssistant.generateRequirement(userInput);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'requirement',
+                }, '需求生成成功'));
+            } catch (error) {
+                logError(error, { api: 'generate-requirement' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 2. AI 测试用例生成
+        if (url === '/api/ai/generate-testcase' && method === 'POST') {
+            const body = await parseBody(req);
+            const { requirementDoc, requirementId } = body;
+            
+            if (!requirementDoc || typeof requirementDoc !== 'string') {
+                return jsonRes(res, 400, createErrorResponse('需求文档不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                const result = await aiAssistant.generateTestcase(requirementDoc);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'testcase',
+                    requirementId: requirementId || null,
+                }, '测试用例生成成功'));
+            } catch (error) {
+                logError(error, { api: 'generate-testcase' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 3. AI 需求审查
+        if (url === '/api/ai/review-requirement' && method === 'POST') {
+            const body = await parseBody(req);
+            const { requirementText, requirementId } = body;
+            
+            if (!requirementText || typeof requirementText !== 'string') {
+                return jsonRes(res, 400, createErrorResponse('需求文本不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                const result = await aiAssistant.reviewRequirement(requirementText);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'review',
+                    requirementId: requirementId || null,
+                }, '需求审查完成'));
+            } catch (error) {
+                logError(error, { api: 'review-requirement' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 4. AI 缺陷分类
+        if (url === '/api/ai/classify-defect' && method === 'POST') {
+            const body = await parseBody(req);
+            const { defectDescription, defectId, includeHistory } = body;
+            
+            if (!defectDescription || typeof defectDescription !== 'string') {
+                return jsonRes(res, 400, createErrorResponse('缺陷描述不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                // 可选：加载历史缺陷数据
+                let historicalDefects = '';
+                if (includeHistory) {
+                    const defects = JSON.parse(fs.readFileSync(DEFECTS_FILE, 'utf-8') || '[]');
+                    historicalDefects = defects.slice(0, 10).map(d => 
+                        `ID: ${d.id}, 描述：${d.description}, 类型：${d.type}, 严重程度：${d.severity}`
+                    ).join('\n');
+                }
+                
+                const result = await aiAssistant.classifyDefect(defectDescription, historicalDefects);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'classification',
+                    defectId: defectId || null,
+                }, '缺陷分类完成'));
+            } catch (error) {
+                logError(error, { api: 'classify-defect' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 5. AI 任务智能分配
+        if (url === '/api/ai/assign-task' && method === 'POST') {
+            const body = await parseBody(req);
+            const { taskDescription, taskId } = body;
+            
+            if (!taskDescription || typeof taskDescription !== 'string') {
+                return jsonRes(res, 400, createErrorResponse('任务描述不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                // 加载团队成员和工作负载数据
+                const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf-8') || '{ tasks: [], users: [] }');
+                const teamMembers = tasks.users || [];
+                const currentWorkload = tasks.tasks || [];
+                
+                const result = await aiAssistant.assignTask(
+                    taskDescription,
+                    JSON.stringify(teamMembers, null, 2),
+                    JSON.stringify(currentWorkload, null, 2)
+                );
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'assignment',
+                    taskId: taskId || null,
+                }, '任务分配建议生成成功'));
+            } catch (error) {
+                logError(error, { api: 'assign-task' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 6. AI 智能搜索
+        if (url === '/api/ai/search' && method === 'POST') {
+            const body = await parseBody(req);
+            const { query, filters } = body;
+            
+            if (!query || typeof query !== 'string' || query.trim().length === 0) {
+                return jsonRes(res, 400, createErrorResponse('搜索关键词不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                // 分析搜索意图
+                const searchAnalysis = aiAssistant.analyzeSearchQuery(query);
+                
+                // 执行搜索（本地实现）
+                const searchResults = {
+                    requirements: [],
+                    testcases: [],
+                    defects: [],
+                    tasks: [],
+                };
+                
+                const keywords = searchAnalysis.keywords.map(k => k.toLowerCase());
+                
+                // 搜索需求
+                searchResults.requirements = requirements.filter(r => 
+                    keywords.some(k => 
+                        r.title?.toLowerCase().includes(k) || 
+                        r.description?.toLowerCase().includes(k)
+                    )
+                ).slice(0, 10);
+                
+                // 搜索测试用例
+                searchResults.testcases = testcases.filter(t => 
+                    keywords.some(k => 
+                        t.title?.toLowerCase().includes(k) || 
+                        t.description?.toLowerCase().includes(k)
+                    )
+                ).slice(0, 10);
+                
+                // 搜索缺陷
+                const defects = JSON.parse(fs.readFileSync(DEFECTS_FILE, 'utf-8') || '[]');
+                searchResults.defects = defects.filter(d => 
+                    keywords.some(k => 
+                        d.title?.toLowerCase().includes(k) || 
+                        d.description?.toLowerCase().includes(k)
+                    )
+                ).slice(0, 10);
+                
+                // 搜索任务
+                const tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf-8') || '{ tasks: [] }');
+                searchResults.tasks = tasks.tasks.filter(t => 
+                    keywords.some(k => 
+                        t.title?.toLowerCase().includes(k) || 
+                        t.description?.toLowerCase().includes(k)
+                    )
+                ).slice(0, 10);
+                
+                return jsonRes(res, 200, createSuccessResponse({
+                    query: searchAnalysis,
+                    results: searchResults,
+                    suggestions: searchAnalysis.suggestions,
+                }, '搜索完成'));
+            } catch (error) {
+                logError(error, { api: 'search' });
+                return jsonRes(res, 500, createErrorResponse(
+                    '搜索失败：' + error.message,
+                    ERROR_CODES.SEARCH_ERROR
+                ));
+            }
+        }
+
+        // 7. AI 变更影响分析
+        if (url === '/api/ai/impact-analysis' && method === 'POST') {
+            const body = await parseBody(req);
+            const { changeDescription, requirementId } = body;
+            
+            if (!changeDescription || typeof changeDescription !== 'string') {
+                return jsonRes(res, 400, createErrorResponse('变更描述不能为空', ERROR_CODES.VALIDATION_ERROR));
+            }
+            
+            try {
+                // 收集关联项目信息
+                const relatedItems = {
+                    requirements: requirements.filter(r => r.id === requirementId),
+                    testcases: testcases.filter(t => 
+                        traces.some(trace => trace.requirementId === requirementId && trace.testcaseId === t.id)
+                    ),
+                    traces: traces.filter(t => t.requirementId === requirementId),
+                };
+                
+                const result = await aiAssistant.analyzeImpact(changeDescription, relatedItems);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'impact-analysis',
+                    requirementId: requirementId || null,
+                }, '影响分析完成'));
+            } catch (error) {
+                logError(error, { api: 'impact-analysis' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 8. AI 项目风险预测
+        if (url === '/api/ai/risk-prediction' && method === 'POST') {
+            const body = await parseBody(req);
+            const { projectId } = body;
+            
+            try {
+                // 收集项目数据
+                const projectData = {
+                    requirements: projectId ? requirements.filter(r => r.projectId === projectId) : requirements,
+                    testcases: projectId ? testcases.filter(t => t.projectId === projectId) : testcases,
+                    tasks: JSON.parse(fs.readFileSync(TASKS_FILE, 'utf-8') || '{ tasks: [] }').tasks,
+                    baselines: baselines,
+                };
+                
+                // 历史数据（从历史记录中提取）
+                const historicalData = {
+                    history: history.slice(0, 100),
+                    baselines: baselines.slice(0, 20),
+                };
+                
+                const result = await aiAssistant.predictRisk(projectData, historicalData);
+                return jsonRes(res, 200, createSuccessResponse({
+                    result,
+                    type: 'risk-prediction',
+                    projectId: projectId || null,
+                }, '风险预测完成'));
+            } catch (error) {
+                logError(error, { api: 'risk-prediction' });
+                return jsonRes(res, 500, createErrorResponse(
+                    'AI 服务不可用：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 9. AI 智能建议（通用建议接口）
+        if (url === '/api/ai/suggestions' && method === 'GET') {
+            try {
+                const urlObj = new URL('http://localhost' + fullUrl);
+                const context = urlObj.searchParams.get('context') || 'general';
+                
+                // 根据上下文生成建议
+                const suggestions = {
+                    general: [
+                        '检查是否有未评审的需求',
+                        '查看测试覆盖率低于 80% 的模块',
+                        ' review 本周新增的缺陷',
+                        '更新项目进度报告',
+                    ],
+                    requirement: [
+                        '为需求添加验收标准',
+                        '检查需求的可测试性',
+                        '关联相关测试用例',
+                        '评审需求变更',
+                    ],
+                    testcase: [
+                        '补充边界值测试用例',
+                        '更新过期的测试用例',
+                        '关联需求文档',
+                        '执行失败的测试用例',
+                    ],
+                };
+                
+                return jsonRes(res, 200, createSuccessResponse({
+                    suggestions: suggestions[context] || suggestions.general,
+                    context,
+                }, '获取建议成功'));
+            } catch (error) {
+                logError(error, { api: 'suggestions' });
+                return jsonRes(res, 500, createErrorResponse(
+                    '获取建议失败：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
+        }
+
+        // 10. AI 服务状态检查
+        if (url === '/api/ai/status' && method === 'GET') {
+            try {
+                const status = aiAssistant.getAIStatus();
+                const connectionTest = await aiAssistant.testAIConnection();
+                
+                return jsonRes(res, 200, createSuccessResponse({
+                    status,
+                    connection: connectionTest,
+                }, 'AI 服务状态正常'));
+            } catch (error) {
+                logError(error, { api: 'status' });
+                return jsonRes(res, 500, createErrorResponse(
+                    '获取状态失败：' + error.message,
+                    ERROR_CODES.AI_SERVICE_ERROR
+                ));
+            }
         }
 
         // 404
