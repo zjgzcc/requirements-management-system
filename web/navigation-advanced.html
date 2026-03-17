@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导航树高级操作</title>
+    <link rel="stylesheet" href="navigation-tree.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .page-header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .feature-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .feature-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .demo-section {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+
+        .demo-section h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .demo-tree-container {
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            background: #fafafa;
+            min-height: 400px;
+        }
+
+        .api-section {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-top: 24px;
+        }
+
+        .api-section h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .api-endpoint {
+            background: #f5f5ff;
+            border-left: 4px solid #667eea;
+            padding: 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+        }
+
+        .api-method {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-right: 12px;
+        }
+
+        .api-method.post {
+            background: #27ae60;
+            color: white;
+        }
+
+        .api-url {
+            font-family: 'Courier New', monospace;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .api-description {
+            margin-top: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .api-example {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 12px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 100px;
+            right: 30px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+            z-index: 3000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e1e1e1;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #333;
+            margin: 0;
+        }
+
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 20px;
+            border-top: 1px solid #e1e1e1;
+        }
+
+        .btn-primary {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            padding: 10px 24px;
+            background: white;
+            color: #666;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>🌳 导航树高级操作</h1>
+            <p>拖拽排序 · 批量操作 · 节点复制 · 导入导出</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🖱️</div>
+                <h3 class="feature-title">拖拽排序</h3>
+                <p class="feature-description">直观的拖拽交互，轻松调整节点顺序和层级结构</p>
+                <ul class="feature-list">
+                    <li>拖拽调整节点顺序</li>
+                    <li>拖拽调整节点层级</li>
+                    <li>实时视觉反馈</li>
+                    <li>自动保存排序结果</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h3 class="feature-title">批量操作</h3>
+                <p class="feature-description">高效处理多个节点，提升工作效率</p>
+                <ul class="feature-list">
+                    <li>批量移动节点</li>
+                    <li>批量删除节点</li>
+                    <li>批量修改负责人</li>
+                    <li>批量修改状态</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔧</div>
+                <h3 class="feature-title">节点增强</h3>
+                <p class="feature-description">丰富的节点操作功能，满足各种场景需求</p>
+                <ul class="feature-list">
+                    <li>节点快速复制</li>
+                    <li>JSON 数据导入</li>
+                    <li>节点数据导出</li>
+                    <li>搜索定位节点</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎯 功能演示</h2>
+            <div id="demoTree" class="demo-tree-container"></div>
+        </div>
+
+        <div class="api-section">
+            <h2>🔌 API 接口文档</h2>
+            
+            <div class="api-endpoint">
+                <span class="api-method post">POST</span>
+                <span class="api-url">/api/navigation/batch-move</span>
+                <p class="api-description">批量移动节点到指定的父节点</p>
+                <div class="api-example">{
+  "nodeIds": ["node1", "node2", "node3"],
+  "targetParentId": "targetNodeId"
+}</div>
+            </div>
+
+            <div class="api-endpoint">
+                <span class="api-method post">POST</span>
+                <span class="api-url">/api/navigation/batch-delete</span>
+                <p class="api-description">批量删除指定的节点</p>
+                <div class="api-example">{
+  "nodeIds": ["node1", "node2", "node3"]
+}</div>
+            </div>
+
+            <div class="api-endpoint">
+                <span class="api-method post">POST</span>
+                <span class="api-url">/api/navigation/reorder</span>
+                <p class="api-description">重新排序节点（拖拽操作）</p>
+                <div class="api-example">{
+  "draggedNodeId": "sourceNodeId",
+  "targetNodeId": "targetNodeId",
+  "position": "before" // 或 "after", "into"
+}</div>
+            </div>
+
+            <div class="api-endpoint">
+                <span class="api-method post">POST</span>
+                <span class="api-url">/api/navigation/duplicate</span>
+                <p class="api-description">复制节点</p>
+                <div class="api-example">{
+  "nodeId": "sourceNodeId",
+  "newName": "新节点名称（可选）"
+}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // API 基础地址
+        const API_BASE = window.location.origin;
+
+        // Toast 通知函数
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化演示树
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 这里可以加载实际的导航树组件
+            // 由于是演示页面，我们显示说明文字
+            const demoTree = document.getElementById('demoTree');
+            demoTree.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #666;">
+                    <p style="font-size: 18px; margin-bottom: 16px;">🚀 导航树组件已就绪</p>
+                    <p>在实际项目中，导航树会自动加载并显示在上方区域</p>
+                    <p style="margin-top: 20px; font-size: 14px;">
+                        拖拽节点可调整顺序和层级<br>
+                        点击复选框可进行批量选择<br>
+                        点击 ⋮ 按钮可访问更多操作
+                    </p>
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

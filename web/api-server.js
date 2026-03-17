@@ -60,6 +60,9 @@ const NAVIGATION_FILE = path.join(__dirname, 'navigation.json');
 const TASKS_FILE = path.join(__dirname, 'tasks.json');
 const DEFECTS_FILE = path.join(__dirname, 'defects.json');
 const AI_CACHE_FILE = path.join(__dirname, 'ai-cache.json');
+const TEMPLATES_FILE = path.join(__dirname, 'templates.json');
+const CUSTOM_FIELDS_FILE = path.join(__dirname, 'custom-fields.json');
+const AUDIT_LOGS_FILE = path.join(__dirname, 'audit-logs.json');
 
 // MIME 类型映射
 const mimeTypes = {
@@ -103,6 +106,9 @@ let navigation = initializeFile(NAVIGATION_FILE, []); // 导航树数据
 let idCounter = initializeFile(ID_COUNTER_FILE, { requirement: 0, testcase: 0, defect: 0 });
 let tasksData = initializeFile(TASKS_FILE, { tasks: [], users: [], projects: [] });
 let defects = initializeFile(DEFECTS_FILE, []); // 缺陷数据
+let templatesData = initializeFile(TEMPLATES_FILE, { templates: [] });
+let customFields = initializeFile(CUSTOM_FIELDS_FILE, { fields: [], nextId: 1 }); // 自定义字段
+let auditLogs = initializeFile(AUDIT_LOGS_FILE, []); // 审计日志
 
 // 初始化默认用户
 if (users.length === 0) {
@@ -198,6 +204,127 @@ function getSessionFromHeaders(req) {
     return null;
 }
 
+// ===== 审计日志功能 =====
+// 生成审计日志 ID
+function generateAuditId() {
+    return 'AUDIT_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// 记录审计日志
+function logAudit(operation) {
+    const logEntry = {
+        id: generateAuditId(),
+        timestamp: new Date().toISOString(),
+        username: operation.username || 'anonymous',
+        userRole: operation.userRole || 'unknown',
+        operationType: operation.operationType, // create, update, delete, read, login, logout, export, import, permission
+        dataType: operation.dataType, // user, project, requirement, testcase, defect, task, baseline, trace
+        objectId: operation.objectId || null,
+        objectName: operation.objectName || null,
+        ipAddress: operation.ipAddress || 'unknown',
+        userAgent: operation.userAgent || 'unknown',
+        method: operation.method || 'unknown',
+        endpoint: operation.endpoint || 'unknown',
+        status: operation.status || 'success', // success, failed
+        details: operation.details || null,
+        changes: operation.changes || null // 记录变更内容
+    };
+    
+    auditLogs.unshift(logEntry); // 新日志放在前面
+    
+    // 限制日志数量，保留最近 10000 条
+    if (auditLogs.length > 10000) {
+        auditLogs = auditLogs.slice(0, 10000);
+    }
+    
+    saveAuditLogs();
+    return logEntry;
+}
+
+// 保存审计日志
+function saveAuditLogs() {
+    try {
+        fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify(auditLogs, null, 2));
+    } catch (error) {
+        console.error('保存审计日志失败:', error);
+    }
+}
+
+// 获取客户端 IP
+function getClientIp(req) {
+    return req.headers['x-forwarded-for'] || 
+           req.headers['x-real-ip'] || 
+           req.socket.remoteAddress || 
+           'unknown';
+}
+
+// 审计日志中间件 - 自动记录 API 请求
+function auditMiddleware(req, res, user = null) {
+    const startTime = Date.now();
+    
+    // 监听响应完成
+    res.on('finish', () => {
+        // 只记录重要的操作
+        const shouldAudit = req.method !== 'GET' || 
+                           req.url.includes('/export') || 
+                           req.url.includes('/import') ||
+                           req.url.includes('/auth/');
+        
+        if (!shouldAudit) return;
+        
+        const operationType = getOperationTypeFromRequest(req);
+        const dataType = getDataTypeFromRequest(req);
+        
+        logAudit({
+            username: user ? user.username : 'anonymous',
+            userRole: user ? user.role : 'unknown',
+            operationType: operationType,
+            dataType: dataType,
+            ipAddress: getClientIp(req),
+            userAgent: req.headers['user-agent'] || 'unknown',
+            method: req.method,
+            endpoint: req.url,
+            status: res.statusCode < 400 ? 'success' : 'failed'
+        });
+    });
+}
+
+// 从请求中推断操作类型
+function getOperationTypeFromRequest(req) {
+    const url = req.url.toLowerCase();
+    const method = req.method;
+    
+    if (url.includes('/auth/login')) return 'login';
+    if (url.includes('/auth/logout')) return 'logout';
+    if (url.includes('/export')) return 'export';
+    if (url.includes('/import')) return 'import';
+    if (url.includes('/permission') || url.includes('/role')) return 'permission';
+    
+    if (method === 'POST') return 'create';
+    if (method === 'PUT' || method === 'PATCH') return 'update';
+    if (method === 'DELETE') return 'delete';
+    if (method === 'GET') return 'read';
+    
+    return 'unknown';
+}
+
+// 从请求中推断数据类型
+function getDataTypeFromRequest(req) {
+    const url = req.url.toLowerCase();
+    
+    if (url.includes('/user')) return 'user';
+    if (url.includes('/project')) return 'project';
+    if (url.includes('/requirement')) return 'requirement';
+    if (url.includes('/testcase')) return 'testcase';
+    if (url.includes('/defect')) return 'defect';
+    if (url.includes('/task')) return 'task';
+    if (url.includes('/baseline')) return 'baseline';
+    if (url.includes('/trace')) return 'trace';
+    if (url.includes('/audit')) return 'audit';
+    
+    return 'unknown';
+}
+
 // 认证中间件
 function requireAuth(req, res) {
     const token = getSessionFromHeaders(req);
@@ -232,11 +359,22 @@ function saveData() {
     fs.writeFileSync(ID_COUNTER_FILE, JSON.stringify(idCounter, null, 2));
     fs.writeFileSync(TASKS_FILE, JSON.stringify(tasksData, null, 2));
     fs.writeFileSync(DEFECTS_FILE, JSON.stringify(defects, null, 2));
+    fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(templatesData, null, 2));
+    fs.writeFileSync(CUSTOM_FIELDS_FILE, JSON.stringify(customFields, null, 2));
 }
 
 // 生成唯一 ID
 function generateUniqueId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// 判断是否是后代节点
+function isDescendant(nodeId, ancestorId) {
+    if (!ancestorId) return false;
+    const node = navigation.find(n => n.id === nodeId);
+    if (!node || !node.parentId) return false;
+    if (node.parentId === ancestorId) return true;
+    return isDescendant(node.parentId, ancestorId);
 }
 
 // 提取关键词（用于智能推荐）
@@ -445,6 +583,95 @@ function getNextId(type) {
     idCounter[type] = (idCounter[type] || 0) + 1;
     fs.writeFileSync(ID_COUNTER_FILE, JSON.stringify(idCounter, null, 2));
     return idCounter[type];
+}
+
+// ===== 自定义字段辅助函数 =====
+// 获取指定范围的自定义字段
+function getCustomFieldsForScope(scope, enabledOnly = true) {
+    let fields = customFields.fields.filter(f => f.scope === scope);
+    if (enabledOnly) {
+        fields = fields.filter(f => f.enabled !== false);
+    }
+    return fields.sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+// 验证自定义字段值
+function validateCustomFieldValue(field, value) {
+    if (field.required && (value === undefined || value === null || value === '')) {
+        return { valid: false, message: `字段"${field.name}"是必填项` };
+    }
+    
+    if (value === undefined || value === null || value === '') {
+        return { valid: true };
+    }
+    
+    switch (field.type) {
+        case 'number':
+            if (typeof value !== 'number' && isNaN(Number(value))) {
+                return { valid: false, message: `字段"${field.name}"必须是数字` };
+            }
+            break;
+        case 'date':
+            const date = new Date(value);
+            if (isNaN(date.getTime())) {
+                return { valid: false, message: `字段"${field.name}"必须是有效日期` };
+            }
+            break;
+        case 'select':
+            if (field.options && !field.options.includes(value)) {
+                return { valid: false, message: `字段"${field.name}"的值不在选项中` };
+            }
+            break;
+        case 'multiselect':
+            if (!Array.isArray(value)) {
+                return { valid: false, message: `字段"${field.name}"必须是数组` };
+            }
+            if (field.options) {
+                const invalid = value.filter(v => !field.options.includes(v));
+                if (invalid.length > 0) {
+                    return { valid: false, message: `字段"${field.name}"包含无效选项` };
+                }
+            }
+            break;
+    }
+    
+    return { valid: true };
+}
+
+// 处理自定义字段数据
+function processCustomFields(scope, data, existingColumns = []) {
+    const customFieldDefs = getCustomFieldsForScope(scope, true);
+    const columns = [...existingColumns];
+    const errors = [];
+    
+    // 处理传入的自定义字段值
+    if (data.customFields) {
+        for (const [fieldId, value] of Object.entries(data.customFields)) {
+            const fieldDef = customFieldDefs.find(f => f.id === fieldId);
+            if (fieldDef) {
+                const validation = validateCustomFieldValue(fieldDef, value);
+                if (!validation.valid) {
+                    errors.push(validation.message);
+                    continue;
+                }
+                
+                // 更新或添加列
+                const existingColIndex = columns.findIndex(c => c.id === fieldId);
+                if (existingColIndex >= 0) {
+                    columns[existingColIndex].value = value;
+                } else {
+                    columns.push({
+                        id: fieldId,
+                        name: fieldDef.name,
+                        type: fieldDef.type,
+                        value: value
+                    });
+                }
+            }
+        }
+    }
+    
+    return { columns, errors };
 }
 
 // 分析变更类型和影响范围
@@ -858,7 +1085,7 @@ async function handleApiRequest(req, res, fullUrl) {
 
         if (url === '/api/requirements' && method === 'POST') {
             const body = await parseBody(req);
-            const { projectId, prefix, title, category, status, priority, assignee, description, acceptanceCriteria, headerId, savePrefix, richContent, attachments } = body;
+            const { projectId, prefix, title, category, status, priority, assignee, description, acceptanceCriteria, headerId, savePrefix, richContent, attachments, columns, customFields } = body;
 
             if (!projectId) {
                 return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
@@ -866,6 +1093,14 @@ async function handleApiRequest(req, res, fullUrl) {
 
             const nextId = getNextId('requirement');
             const reqId = prefix ? `${prefix}-${nextId}` : `REQ-${nextId}`;
+
+            // 处理自定义字段
+            const baseColumns = columns || [{ id: generateUniqueId(), name: '描述', type: 'text', value: description || '' }];
+            const { columns: finalColumns, errors } = processCustomFields('requirement', { customFields }, baseColumns);
+            
+            if (errors.length > 0) {
+                return jsonRes(res, 400, { success: false, message: errors.join('; ') });
+            }
 
             const newRequirement = {
                 id: generateUniqueId(),
@@ -882,7 +1117,7 @@ async function handleApiRequest(req, res, fullUrl) {
                 headerId: headerId || null,
                 richContent: richContent || null,
                 attachments: attachments || [],
-                columns: columns || [{ id: generateUniqueId(), name: '描述', type: 'text', value: description || '' }],
+                columns: finalColumns,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -3203,6 +3438,213 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, message: '节点移动成功', data: navigation[nodeIndex] });
         }
 
+        // ===== 导航树高级操作 API =====
+        // 批量删除节点
+        if (url === '/api/navigation/batch-delete' && method === 'POST') {
+            const body = await parseBody(req);
+            const { nodeIds } = body;
+            
+            if (!nodeIds || !Array.isArray(nodeIds) || nodeIds.length === 0) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整：需要 nodeIds 数组' });
+            }
+            
+            let deletedCount = 0;
+            const errors = [];
+            
+            for (const nodeId of nodeIds) {
+                const nodeIndex = navigation.findIndex(n => n.id === nodeId);
+                if (nodeIndex === -1) {
+                    errors.push(`节点 ${nodeId} 不存在`);
+                    continue;
+                }
+                
+                // 检查是否有子节点
+                const hasChildren = navigation.some(n => n.parentId === nodeId);
+                if (hasChildren) {
+                    errors.push(`节点 ${nodeId} 有子节点，无法删除`);
+                    continue;
+                }
+                
+                navigation.splice(nodeIndex, 1);
+                deletedCount++;
+            }
+            
+            saveData();
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: `成功删除 ${deletedCount} 个节点`,
+                data: { deletedCount, errors }
+            });
+        }
+
+        // 批量移动节点
+        if (url === '/api/navigation/batch-move' && method === 'POST') {
+            const body = await parseBody(req);
+            const { nodeIds, targetParentId } = body;
+            
+            if (!nodeIds || !Array.isArray(nodeIds) || nodeIds.length === 0) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整：需要 nodeIds 数组' });
+            }
+            
+            // 验证目标父节点
+            if (targetParentId) {
+                const targetNode = navigation.find(n => n.id === targetParentId);
+                if (!targetNode) {
+                    return jsonRes(res, 400, { success: false, message: '目标父节点不存在' });
+                }
+            }
+            
+            let movedCount = 0;
+            
+            for (const nodeId of nodeIds) {
+                const nodeIndex = navigation.findIndex(n => n.id === nodeId);
+                if (nodeIndex === -1) continue;
+                
+                // 防止移动到子节点
+                if (isDescendant(nodeId, targetParentId)) {
+                    continue;
+                }
+                
+                navigation[nodeIndex].parentId = targetParentId;
+                
+                // 重新计算层级
+                if (targetParentId) {
+                    const parentNode = navigation.find(n => n.id === targetParentId);
+                    if (parentNode) {
+                        navigation[nodeIndex].level = parentNode.level + 1;
+                    }
+                } else {
+                    navigation[nodeIndex].level = 1;
+                }
+                
+                // 更新 order
+                const siblings = navigation.filter(n => n.parentId === targetParentId);
+                navigation[nodeIndex].order = siblings.length;
+                
+                movedCount++;
+            }
+            
+            saveData();
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: `成功移动 ${movedCount} 个节点`,
+                data: { movedCount }
+            });
+        }
+
+        // 重新排序节点（拖拽）
+        if (url === '/api/navigation/reorder' && method === 'POST') {
+            const body = await parseBody(req);
+            const { draggedNodeId, targetNodeId, position } = body;
+            
+            if (!draggedNodeId || !targetNodeId || !position) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整' });
+            }
+            
+            const draggedNodeIndex = navigation.findIndex(n => n.id === draggedNodeId);
+            const targetNodeIndex = navigation.findIndex(n => n.id === targetNodeId);
+            
+            if (draggedNodeIndex === -1 || targetNodeIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '节点不存在' });
+            }
+            
+            const draggedNode = navigation[draggedNodeIndex];
+            const targetNode = navigation[targetNodeIndex];
+            
+            // 防止拖拽到自己的子节点
+            if (isDescendant(draggedNodeId, targetNodeId)) {
+                return jsonRes(res, 400, { success: false, message: '不能将节点拖拽到自己的子节点' });
+            }
+            
+            // 获取兄弟姐妹节点
+            const siblings = navigation
+                .map((n, i) => ({ ...n, originalIndex: i }))
+                .filter(n => n.parentId === (position === 'into' ? targetNodeId : targetNode.parentId) && n.projectId === draggedNode.projectId)
+                .sort((a, b) => a.order - b.order);
+            
+            if (position === 'into') {
+                // 拖拽到目标节点内部，成为子节点
+                draggedNode.parentId = targetNodeId;
+                draggedNode.level = targetNode.level + 1;
+                
+                // 添加到子节点末尾
+                const maxOrder = Math.max(-1, ...siblings.map(s => s.order));
+                draggedNode.order = maxOrder + 1;
+            } else if (position === 'before') {
+                // 拖拽到目标节点之前
+                draggedNode.parentId = targetNode.parentId;
+                draggedNode.level = targetNode.level;
+                
+                // 插入到目标节点之前
+                const targetSiblingIndex = siblings.findIndex(s => s.id === targetNodeId);
+                const targetOrder = siblings[targetSiblingIndex]?.order || 0;
+                
+                // 更新所有相关节点的 order
+                siblings.forEach((s, idx) => {
+                    if (s.order >= targetOrder && s.id !== draggedNodeId) {
+                        navigation[s.originalIndex].order = s.order + 1;
+                    }
+                });
+                draggedNode.order = targetOrder;
+            } else if (position === 'after') {
+                // 拖拽到目标节点之后
+                draggedNode.parentId = targetNode.parentId;
+                draggedNode.level = targetNode.level;
+                
+                // 插入到目标节点之后
+                const targetSiblingIndex = siblings.findIndex(s => s.id === targetNodeId);
+                const targetOrder = siblings[targetSiblingIndex]?.order || 0;
+                
+                // 更新所有相关节点的 order
+                siblings.forEach((s, idx) => {
+                    if (s.order > targetOrder && s.id !== draggedNodeId) {
+                        navigation[s.originalIndex].order = s.order + 1;
+                    }
+                });
+                draggedNode.order = targetOrder + 1;
+            }
+            
+            saveData();
+            
+            return jsonRes(res, 200, { success: true, message: '节点重新排序成功', data: draggedNode });
+        }
+
+        // 复制节点
+        if (url === '/api/navigation/duplicate' && method === 'POST') {
+            const body = await parseBody(req);
+            const { nodeId, newName } = body;
+            
+            if (!nodeId) {
+                return jsonRes(res, 400, { success: false, message: '参数不完整：需要 nodeId' });
+            }
+            
+            const sourceNode = navigation.find(n => n.id === nodeId);
+            if (!sourceNode) {
+                return jsonRes(res, 404, { success: false, message: '节点不存在' });
+            }
+            
+            // 创建新节点
+            const newNode = {
+                id: generateUniqueId(),
+                projectId: sourceNode.projectId,
+                name: newName || `${sourceNode.name} (副本)`,
+                type: sourceNode.type,
+                parentId: sourceNode.parentId,
+                level: sourceNode.level,
+                path: sourceNode.path,
+                order: navigation.filter(n => n.parentId === sourceNode.parentId && n.projectId === sourceNode.projectId).length,
+                requirementCount: 0,
+                createdAt: new Date().toISOString()
+            };
+            
+            navigation.push(newNode);
+            saveData();
+            
+            return jsonRes(res, 201, { success: true, message: '节点复制成功', data: newNode });
+        }
+
         // ===== 文件上传 API =====
         // 【基础设施模块】增强版：支持简单上传和分片上传
         if (url === '/api/upload' && method === 'POST') {
@@ -3313,61 +3755,426 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, message: '前缀设置成功', data: prefixes });
         }
 
-        // ===== 历史记录 API =====
-        // ===== 用例模板 API =====
-        if (url === '/api/templates' && method === 'GET') {
-            // 返回内置模板（前端存储自定义模板）
-            const defaultTemplates = [
-                {
-                    id: 'default_functional',
-                    name: '功能测试模板',
-                    description: '适用于常规功能测试场景',
-                    steps: '<p>1. 打开系统/页面</p><p>2. 输入/点击...</p><p>3. 验证结果</p>',
-                    result: '系统响应符合预期',
-                    scenarios: '功能测试，回归测试'
-                },
-                {
-                    id: 'default_login',
-                    name: '登录测试模板',
-                    description: '用户登录相关测试场景',
-                    steps: '<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录按钮</p><p>4. 验证登录结果</p>',
-                    result: '成功登录并跳转到首页',
-                    scenarios: '登录测试，认证测试'
-                },
-                {
-                    id: 'default_api',
-                    name: 'API 测试模板',
-                    description: '接口测试场景',
-                    steps: '<p>1. 准备测试数据</p><p>2. 发送 HTTP 请求</p><p>3. 验证响应状态码</p><p>4. 验证响应数据</p>',
-                    result: 'API 返回预期数据',
-                    scenarios: '接口测试，集成测试'
-                },
-                {
-                    id: 'default_ui',
-                    name: 'UI 测试模板',
-                    description: '界面和交互测试',
-                    steps: '<p>1. 打开目标页面</p><p>2. 检查页面元素</p><p>3. 执行交互操作</p><p>4. 验证界面变化</p>',
-                    result: '界面显示和交互正常',
-                    scenarios: 'UI 测试，兼容性测试'
-                },
-                {
-                    id: 'default_performance',
-                    name: '性能测试模板',
-                    description: '性能和负载测试',
-                    steps: '<p>1. 设置并发用户数</p><p>2. 执行压力测试</p><p>3. 监控系统指标</p><p>4. 分析性能数据</p>',
-                    result: '系统性能指标符合要求',
-                    scenarios: '性能测试，负载测试'
-                },
-                {
-                    id: 'default_security',
-                    name: '安全测试模板',
-                    description: '安全性测试场景',
-                    steps: '<p>1. 识别测试目标</p><p>2. 执行安全扫描</p><p>3. 尝试漏洞利用</p><p>4. 验证防护措施</p>',
-                    result: '系统安全防护有效',
-                    scenarios: '安全测试，渗透测试'
+        // ===== 自定义字段管理 API =====
+        // GET /api/custom-fields - 获取字段列表
+        if (url === '/api/custom-fields' && method === 'GET') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const { scope } = req.query || {};
+            let fieldsList = customFields.fields || [];
+            
+            // 按范围过滤
+            if (scope && ['requirement', 'testcase'].includes(scope)) {
+                fieldsList = fieldsList.filter(f => f.scope === scope);
+            }
+            
+            // 只返回启用的字段（列表页）
+            if (req.query.enabled !== 'false') {
+                fieldsList = fieldsList.filter(f => f.enabled !== false);
+            }
+            
+            return jsonRes(res, 200, { success: true, data: fieldsList });
+        }
+        
+        // POST /api/custom-fields - 创建字段
+        if (url === '/api/custom-fields' && method === 'POST') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const body = await parseBody(req);
+            const { name, type, scope, description, required, enabled, defaultValue, options } = body;
+            
+            // 验证必填字段
+            if (!name || !type || !scope) {
+                return jsonRes(res, 400, { success: false, message: '字段名称、类型和范围不能为空' });
+            }
+            
+            // 验证类型
+            const validTypes = ['text', 'number', 'date', 'select', 'multiselect'];
+            if (!validTypes.includes(type)) {
+                return jsonRes(res, 400, { success: false, message: '无效的字段类型' });
+            }
+            
+            // 验证范围
+            if (!['requirement', 'testcase'].includes(scope)) {
+                return jsonRes(res, 400, { success: false, message: '无效的应用范围' });
+            }
+            
+            // 检查重名
+            const existingField = customFields.fields.find(f => 
+                f.name.toLowerCase() === name.toLowerCase() && f.scope === scope
+            );
+            if (existingField) {
+                return jsonRes(res, 400, { success: false, message: '该范围内已存在同名字段' });
+            }
+            
+            // 创建字段
+            const newField = {
+                id: String(customFields.nextId++),
+                name: name.trim(),
+                type,
+                scope,
+                description: description || '',
+                required: required || false,
+                enabled: enabled !== false,
+                defaultValue: defaultValue || '',
+                options: (type === 'select' || type === 'multiselect') ? (options || []) : undefined,
+                order: customFields.fields.filter(f => f.scope === scope).length,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            customFields.fields.push(newField);
+            saveData();
+            
+            return jsonRes(res, 201, { success: true, message: '字段创建成功', data: newField });
+        }
+        
+        // PUT /api/custom-fields/:id - 更新字段
+        if (url.match(/^\/api\/custom-fields\/[^\/]+$/) && method === 'PUT') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const fieldId = url.split('/').pop();
+            const body = await parseBody(req);
+            
+            const fieldIndex = customFields.fields.findIndex(f => f.id === fieldId);
+            if (fieldIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '字段不存在' });
+            }
+            
+            const field = customFields.fields[fieldIndex];
+            const { name, type, scope, description, required, enabled, defaultValue, options, order } = body;
+            
+            // 如果修改名称，检查是否重复
+            if (name && name.toLowerCase() !== field.name.toLowerCase()) {
+                const existingField = customFields.fields.find(f => 
+                    f.name.toLowerCase() === name.toLowerCase() && 
+                    f.scope === (scope || field.scope) &&
+                    f.id !== fieldId
+                );
+                if (existingField) {
+                    return jsonRes(res, 400, { success: false, message: '该范围内已存在同名字段' });
                 }
-            ];
-            return jsonRes(res, 200, { success: true, data: defaultTemplates });
+                field.name = name.trim();
+            }
+            
+            // 更新字段
+            if (type) field.type = type;
+            if (scope) field.scope = scope;
+            if (description !== undefined) field.description = description;
+            if (required !== undefined) field.required = required;
+            if (enabled !== undefined) field.enabled = enabled;
+            if (defaultValue !== undefined) field.defaultValue = defaultValue;
+            if (order !== undefined) field.order = order;
+            if (options && (type === 'select' || type === 'multiselect')) {
+                field.options = options;
+            }
+            
+            field.updatedAt = new Date().toISOString();
+            customFields.fields[fieldIndex] = field;
+            saveData();
+            
+            return jsonRes(res, 200, { success: true, message: '字段更新成功', data: field });
+        }
+        
+        // DELETE /api/custom-fields/:id - 删除字段
+        if (url.match(/^\/api\/custom-fields\/[^\/]+$/) && method === 'DELETE') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const fieldId = url.split('/').pop();
+            const fieldIndex = customFields.fields.findIndex(f => f.id === fieldId);
+            
+            if (fieldIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '字段不存在' });
+            }
+            
+            customFields.fields.splice(fieldIndex, 1);
+            saveData();
+            
+            return jsonRes(res, 200, { success: true, message: '字段删除成功' });
+        }
+        
+        // POST /api/custom-fields/reorder - 重排字段顺序
+        if (url === '/api/custom-fields/reorder' && method === 'POST') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const body = await parseBody(req);
+            const { scope, fieldIds } = body;
+            
+            if (!scope || !fieldIds || !Array.isArray(fieldIds)) {
+                return jsonRes(res, 400, { success: false, message: '参数错误' });
+            }
+            
+            // 更新字段顺序
+            fieldIds.forEach((id, index) => {
+                const field = customFields.fields.find(f => f.id === id && f.scope === scope);
+                if (field) {
+                    field.order = index;
+                }
+            });
+            
+            saveData();
+            return jsonRes(res, 200, { success: true, message: '排序更新成功' });
+        }
+
+        // ===== 导出模板管理 API =====
+        // GET /api/templates - 获取模板列表
+        if (url === '/api/templates' && method === 'GET') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const { visibility } = req.query || {};
+            let templates = templatesData.templates || [];
+            
+            // 过滤：只返回公有模板或当前用户的模板
+            if (visibility !== 'all' && auth.user.role !== 'admin') {
+                templates = templates.filter(t => 
+                    t.visibility === 'public' || t.createdBy === auth.user.id
+                );
+            }
+            
+            return jsonRes(res, 200, { success: true, data: templates });
+        }
+        
+        // GET /api/templates/:id - 获取单个模板
+        if (url.match(/^\/api\/templates\/[^\/]+$/) && method === 'GET') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const templateId = url.split('/').pop();
+            const template = templatesData.templates.find(t => t.id === templateId);
+            
+            if (!template) {
+                return jsonRes(res, 404, { success: false, message: '模板不存在' });
+            }
+            
+            // 权限检查
+            if (template.visibility === 'private' && template.createdBy !== auth.user.id && auth.user.role !== 'admin') {
+                return jsonRes(res, 403, { success: false, message: '无权访问此私有模板' });
+            }
+            
+            return jsonRes(res, 200, { success: true, data: template });
+        }
+        
+        // POST /api/templates - 创建模板
+        if (url === '/api/templates' && method === 'POST') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const body = await parseBody(req);
+            const { name, description, type, visibility, fields, styles } = body;
+            
+            if (!name || !type) {
+                return jsonRes(res, 400, { success: false, message: '模板名称和类型不能为空' });
+            }
+            
+            const templateId = 'tpl_' + generateUniqueId();
+            const newTemplate = {
+                id: templateId,
+                name,
+                description: description || '',
+                type: type || 'excel',
+                visibility: visibility || 'private',
+                createdBy: auth.user.id,
+                createdByName: auth.user.username,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                fields: fields || [],
+                styles: styles || {}
+            };
+            
+            templatesData.templates.push(newTemplate);
+            saveData();
+            
+            return jsonRes(res, 201, { success: true, data: newTemplate, message: '模板创建成功' });
+        }
+        
+        // PUT /api/templates/:id - 更新模板
+        if (url.match(/^\/api\/templates\/[^\/]+$/) && method === 'PUT') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const templateId = url.split('/').pop();
+            const templateIndex = templatesData.templates.findIndex(t => t.id === templateId);
+            
+            if (templateIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '模板不存在' });
+            }
+            
+            const template = templatesData.templates[templateIndex];
+            
+            // 权限检查：只有创建者或管理员可以修改
+            if (template.createdBy !== auth.user.id && auth.user.role !== 'admin') {
+                return jsonRes(res, 403, { success: false, message: '无权修改此模板' });
+            }
+            
+            const body = await parseBody(req);
+            const { name, description, visibility, fields, styles } = body;
+            
+            if (name) template.name = name;
+            if (description !== undefined) template.description = description;
+            if (visibility) template.visibility = visibility;
+            if (fields) template.fields = fields;
+            if (styles) template.styles = styles;
+            template.updatedAt = new Date().toISOString();
+            
+            templatesData.templates[templateIndex] = template;
+            saveData();
+            
+            return jsonRes(res, 200, { success: true, data: template, message: '模板更新成功' });
+        }
+        
+        // DELETE /api/templates/:id - 删除模板
+        if (url.match(/^\/api\/templates\/[^\/]+$/) && method === 'DELETE') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const templateId = url.split('/').pop();
+            const templateIndex = templatesData.templates.findIndex(t => t.id === templateId);
+            
+            if (templateIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '模板不存在' });
+            }
+            
+            const template = templatesData.templates[templateIndex];
+            
+            // 权限检查：只有创建者或管理员可以删除
+            if (template.createdBy !== auth.user.id && auth.user.role !== 'admin') {
+                return jsonRes(res, 403, { success: false, message: '无权删除此模板' });
+            }
+            
+            // 不允许删除系统模板
+            if (template.createdBy === 'system') {
+                return jsonRes(res, 403, { success: false, message: '系统模板不可删除' });
+            }
+            
+            templatesData.templates.splice(templateIndex, 1);
+            saveData();
+            
+            return jsonRes(res, 200, { success: true, message: '模板删除成功' });
+        }
+        
+        // GET /api/templates/:id/export - 按模板导出
+        if (url.match(/^\/api\/templates\/[^\/]+\/export$/) && method === 'GET') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const parts = url.split('/');
+            const templateId = parts[parts.length - 2];
+            const template = templatesData.templates.find(t => t.id === templateId);
+            
+            if (!template) {
+                return jsonRes(res, 404, { success: false, message: '模板不存在' });
+            }
+            
+            // 权限检查
+            if (template.visibility === 'private' && template.createdBy !== auth.user.id && auth.user.role !== 'admin') {
+                return jsonRes(res, 403, { success: false, message: '无权使用此私有模板' });
+            }
+            
+            // 获取要导出的数据（从查询参数或请求头）
+            const exportData = req.query?.data ? JSON.parse(req.query.data) : [];
+            
+            try {
+                if (template.type === 'word') {
+                    // Word 导出
+                    const doc = new Document({
+                        sections: [{
+                            properties: {},
+                            children: exportData.map((item, index) => {
+                                const children = [];
+                                template.fields.forEach(field => {
+                                    if (field.type === 'heading') {
+                                        children.push(new Paragraph({
+                                            heading: field.level === 1 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
+                                            children: [new TextRun({
+                                                text: `${field.name}: ${item[field.key] || ''}`,
+                                                bold: field.bold
+                                            })]
+                                        }));
+                                    } else if (field.type === 'numberedlist') {
+                                        children.push(new Paragraph({
+                                            children: [new TextRun({
+                                                text: `${field.name}:`,
+                                                bold: true
+                                            })]
+                                        }));
+                                        const steps = (item[field.key] || '').split(/\n|\d+\./).filter(s => s.trim());
+                                        steps.forEach(step => {
+                                            children.push(new Paragraph({
+                                                children: [new TextRun({ text: step.trim() })]
+                                            }));
+                                        });
+                                    } else {
+                                        children.push(new Paragraph({
+                                            children: [
+                                                new TextRun({ text: `${field.name}: `, bold: true }),
+                                                new TextRun({ text: item[field.key] || '' })
+                                            ]
+                                        }));
+                                    }
+                                });
+                                if (index < exportData.length - 1) {
+                                    children.push(new Paragraph({ text: '' })); // 空行分隔
+                                }
+                                return children;
+                            }).flat()
+                        }]
+                    });
+                    
+                    const buffer = await Packer.toBuffer(doc);
+                    res.writeHead(200, {
+                        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'Content-Disposition': `attachment; filename="导出_${template.name}_${Date.now()}.docx"`
+                    });
+                    res.end(buffer);
+                } else {
+                    // Excel 导出
+                    const wb = XLSX.utils.book_new();
+                    const ws_data = [];
+                    
+                    // 表头
+                    const headers = template.fields.map(f => f.name);
+                    ws_data.push(headers);
+                    
+                    // 数据行
+                    exportData.forEach(item => {
+                        const row = template.fields.map(f => item[f.key] || '');
+                        ws_data.push(row);
+                    });
+                    
+                    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                    
+                    // 设置列宽
+                    if (template.fields && template.fields.length > 0) {
+                        const colWidths = template.fields.map(f => ({ wch: f.width || 15 }));
+                        ws['!cols'] = colWidths;
+                    }
+                    
+                    // 设置行高
+                    if (template.styles?.row?.height) {
+                        ws['!rows'] = exportData.map(() => ({ hpt: template.styles.row.height }));
+                        ws['!rows'].unshift({ hpt: template.styles.row.height * 1.2 }); // 表头稍高
+                    }
+                    
+                    XLSX.utils.book_append_sheet(wb, ws, '导出数据');
+                    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+                    
+                    res.writeHead(200, {
+                        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'Content-Disposition': `attachment; filename="导出_${template.name}_${Date.now()}.xlsx"`
+                    });
+                    res.end(buffer);
+                }
+            } catch (error) {
+                logError(error, '模板导出失败');
+                return jsonRes(res, 500, { success: false, message: '导出失败：' + error.message });
+            }
+            return;
         }
 
         // ===== 批量导入用例 API =====
@@ -4216,6 +5023,413 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, data: tasksData.projects || [] });
         }
 
+        // ===== 审计日志 API =====
+        // GET /api/audit/logs - 获取审计日志列表
+        if (url === '/api/audit/logs' && method === 'GET') {
+            const authResult = requireAuth(req, res);
+            if (authResult.error) {
+                return jsonRes(res, authResult.error.code, authResult.error);
+            }
+            
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const page = parseInt(urlObj.searchParams.get('page')) || 1;
+            const pageSize = parseInt(urlObj.searchParams.get('pageSize')) || 20;
+            const timeRange = urlObj.searchParams.get('timeRange');
+            const startDate = urlObj.searchParams.get('startDate');
+            const endDate = urlObj.searchParams.get('endDate');
+            const user = urlObj.searchParams.get('user');
+            const operationType = urlObj.searchParams.get('operationType');
+            const dataType = urlObj.searchParams.get('dataType');
+            
+            // 筛选日志
+            let filteredLogs = [...auditLogs];
+            
+            // 时间范围筛选
+            const now = new Date();
+            if (timeRange === 'today') {
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= startOfDay);
+            } else if (timeRange === 'week') {
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= weekAgo);
+            } else if (timeRange === 'month') {
+                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= monthAgo);
+            } else if (startDate || endDate) {
+                if (startDate) {
+                    const start = new Date(startDate);
+                    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= start);
+                }
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) <= end);
+                }
+            }
+            
+            // 用户筛选
+            if (user) {
+                filteredLogs = filteredLogs.filter(log => log.username === user);
+            }
+            
+            // 操作类型筛选
+            if (operationType) {
+                filteredLogs = filteredLogs.filter(log => log.operationType === operationType);
+            }
+            
+            // 数据类型筛选
+            if (dataType) {
+                filteredLogs = filteredLogs.filter(log => log.dataType === dataType);
+            }
+            
+            // 分页
+            const total = filteredLogs.length;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const logs = filteredLogs.slice(start, end);
+            
+            return jsonRes(res, 200, createSuccessResponse({
+                logs,
+                total,
+                page,
+                pageSize
+            }, '获取审计日志成功'));
+        }
+        
+        // GET /api/audit/stats - 获取审计统计数据
+        if (url === '/api/audit/stats' && method === 'GET') {
+            const authResult = requireAuth(req, res);
+            if (authResult.error) {
+                return jsonRes(res, authResult.error.code, authResult.error);
+            }
+            
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            
+            // 总操作数
+            const totalOperations = auditLogs.length;
+            
+            // 今日操作数
+            const todayOperations = auditLogs.filter(log => new Date(log.timestamp) >= startOfDay).length;
+            
+            // 活跃用户（近 7 天）
+            const activeUsersSet = new Set(
+                auditLogs
+                    .filter(log => new Date(log.timestamp) >= weekAgo)
+                    .map(log => log.username)
+            );
+            const activeUsers = activeUsersSet.size;
+            
+            // 高频操作统计
+            const operationCount = {};
+            auditLogs.forEach(log => {
+                operationCount[log.operationType] = (operationCount[log.operationType] || 0) + 1;
+            });
+            
+            let topOperation = '-';
+            let topOperationCount = 0;
+            Object.entries(operationCount).forEach(([op, count]) => {
+                if (count > topOperationCount) {
+                    topOperation = op;
+                    topOperationCount = count;
+                }
+            });
+            
+            // 异常操作（失败的操作）
+            const abnormalOperations = auditLogs.filter(log => log.status === 'failed').length;
+            
+            return jsonRes(res, 200, createSuccessResponse({
+                totalOperations,
+                todayOperations,
+                activeUsers,
+                topOperation,
+                topOperationCount,
+                abnormalOperations
+            }, '获取统计数据成功'));
+        }
+        
+        // GET /api/audit/export - 导出审计日志
+        if (url === '/api/audit/export' && method === 'GET') {
+            const authResult = requireAuth(req, res);
+            if (authResult.error) {
+                return jsonRes(res, authResult.error.code, authResult.error);
+            }
+            
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const format = urlObj.searchParams.get('format') || 'csv';
+            const timeRange = urlObj.searchParams.get('timeRange');
+            const startDate = urlObj.searchParams.get('startDate');
+            const endDate = urlObj.searchParams.get('endDate');
+            const user = urlObj.searchParams.get('user');
+            const operationType = urlObj.searchParams.get('operationType');
+            const dataType = urlObj.searchParams.get('dataType');
+            
+            // 筛选日志
+            let filteredLogs = [...auditLogs];
+            
+            const now = new Date();
+            if (timeRange === 'today') {
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= startOfDay);
+            } else if (timeRange === 'week') {
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= weekAgo);
+            } else if (timeRange === 'month') {
+                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= monthAgo);
+            } else if (startDate || endDate) {
+                if (startDate) {
+                    const start = new Date(startDate);
+                    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= start);
+                }
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) <= end);
+                }
+            }
+            
+            if (user) filteredLogs = filteredLogs.filter(log => log.username === user);
+            if (operationType) filteredLogs = filteredLogs.filter(log => log.operationType === operationType);
+            if (dataType) filteredLogs = filteredLogs.filter(log => log.dataType === dataType);
+            
+            if (format === 'csv') {
+                // 导出 CSV
+                const headers = ['时间', '用户', '操作类型', '数据类型', '操作对象', 'IP 地址', '状态', '详情'];
+                const rows = [headers.join(',')];
+                
+                filteredLogs.forEach(log => {
+                    const row = [
+                        log.timestamp,
+                        log.username,
+                        log.operationType,
+                        log.dataType,
+                        log.objectName || '',
+                        log.ipAddress,
+                        log.status,
+                        (log.details || '').replace(/,/g, ';')
+                    ];
+                    rows.push(row.join(','));
+                });
+                
+                const csvContent = rows.join('\n');
+                res.writeHead(200, {
+                    'Content-Type': 'text/csv; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.csv"`
+                });
+                res.end(csvContent, 'utf-8');
+            } else {
+                // 导出 Excel
+                const workbook = XLSX.utils.book_new();
+                const data = [['时间', '用户', '操作类型', '数据类型', '操作对象', 'IP 地址', '状态', '详情']];
+                
+                filteredLogs.forEach(log => {
+                    data.push([
+                        log.timestamp,
+                        log.username,
+                        log.operationType,
+                        log.dataType,
+                        log.objectName || '',
+                        log.ipAddress,
+                        log.status,
+                        log.details || ''
+                    ]);
+                });
+                
+                const worksheet = XLSX.utils.aoa_to_sheet(data);
+                worksheet['!cols'] = [
+                    { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+                    { wch: 30 }, { wch: 15 }, { wch: 10 }, { wch: 50 }
+                ];
+                worksheet['!autofilter'] = { ref: 'A1:H1' };
+                XLSX.utils.book_append_sheet(workbook, worksheet, '审计日志');
+                
+                const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+                res.writeHead(200, {
+                    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'Content-Disposition': `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.xlsx"`
+                });
+                res.end(buffer, 'binary');
+            }
+            
+            // 记录导出操作
+            logAudit({
+                username: authResult.user.username,
+                userRole: authResult.user.role,
+                operationType: 'export',
+                dataType: 'audit',
+                ipAddress: getClientIp(req),
+                userAgent: req.headers['user-agent'] || 'unknown',
+                method: 'GET',
+                endpoint: '/api/audit/export',
+                status: 'success',
+                details: `导出格式：${format}, 记录数：${filteredLogs.length}`
+            });
+            
+            return;
+        }
+        
+        // GET /api/audit/report - 导出审计报告（Word）
+        if (url === '/api/audit/report' && method === 'GET') {
+            const authResult = requireAuth(req, res);
+            if (authResult.error) {
+                return jsonRes(res, authResult.error.code, authResult.error);
+            }
+            
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            
+            // 统计数据
+            const totalOperations = auditLogs.length;
+            const todayOperations = auditLogs.filter(log => new Date(log.timestamp) >= startOfDay).length;
+            const weekOperations = auditLogs.filter(log => new Date(log.timestamp) >= weekAgo).length;
+            
+            // 活跃用户
+            const activeUsersSet = new Set(
+                auditLogs.filter(log => new Date(log.timestamp) >= weekAgo).map(log => log.username)
+            );
+            
+            // 操作类型统计
+            const operationCount = {};
+            auditLogs.forEach(log => {
+                operationCount[log.operationType] = (operationCount[log.operationType] || 0) + 1;
+            });
+            
+            // 用户操作统计
+            const userCount = {};
+            auditLogs.forEach(log => {
+                userCount[log.username] = (userCount[log.username] || 0) + 1;
+            });
+            
+            // 创建 Word 文档
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: [
+                        new Paragraph({
+                            text: '操作审计报告',
+                            heading: HeadingLevel.TITLE,
+                            spacing: { after: 400 }
+                        }),
+                        new Paragraph({
+                            text: `报告生成时间：${now.toLocaleString('zh-CN')}`,
+                            spacing: { after: 200 }
+                        }),
+                        new Paragraph({
+                            text: '一、总体统计',
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 }
+                        }),
+                        new Paragraph({
+                            text: `总操作数：${totalOperations}`,
+                            spacing: { after: 100 }
+                        }),
+                        new Paragraph({
+                            text: `今日操作数：${todayOperations}`,
+                            spacing: { after: 100 }
+                        }),
+                        new Paragraph({
+                            text: `本周操作数：${weekOperations}`,
+                            spacing: { after: 100 }
+                        }),
+                        new Paragraph({
+                            text: `活跃用户数：${activeUsersSet.size}`,
+                            spacing: { after: 200 }
+                        }),
+                        new Paragraph({
+                            text: '二、操作类型分布',
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 }
+                        }),
+                        ...Object.entries(operationCount).map(([op, count]) => 
+                            new Paragraph({
+                                text: `${op}: ${count} 次`,
+                                spacing: { after: 100 }
+                            })
+                        ),
+                        new Paragraph({
+                            text: '三、活跃用户 Top 10',
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 }
+                        }),
+                        ...Object.entries(userCount)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 10)
+                            .map(([user, count]) => 
+                                new Paragraph({
+                                    text: `${user}: ${count} 次`,
+                                    spacing: { after: 100 }
+                                })
+                            ),
+                        new Paragraph({
+                            text: '四、最近操作记录（Top 20）',
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 }
+                        }),
+                        new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph({ text: '时间', style: 'TableHeader' })] }),
+                                        new TableCell({ children: [new Paragraph({ text: '用户', style: 'TableHeader' })] }),
+                                        new TableCell({ children: [new Paragraph({ text: '操作', style: 'TableHeader' })] }),
+                                        new TableCell({ children: [new Paragraph({ text: '类型', style: 'TableHeader' })] }),
+                                        new TableCell({ children: [new Paragraph({ text: '状态', style: 'TableHeader' })] })
+                                    ]
+                                }),
+                                ...auditLogs.slice(0, 20).map(log => 
+                                    new TableRow({
+                                        children: [
+                                            new TableCell({ children: [new Paragraph(log.timestamp)] }),
+                                            new TableCell({ children: [new Paragraph(log.username)] }),
+                                            new TableCell({ children: [new Paragraph(log.operationType)] }),
+                                            new TableCell({ children: [new Paragraph(log.dataType)] }),
+                                            new TableCell({ children: [new Paragraph(log.status)] })
+                                        ]
+                                    })
+                                )
+                            ]
+                        }),
+                        new Paragraph({
+                            text: '--- 报告结束 ---',
+                            spacing: { before: 400 },
+                            alignment: AlignmentType.CENTER
+                        })
+                    ]
+                }]
+            });
+            
+            Packer.toBuffer(doc).then(buffer => {
+                res.writeHead(200, {
+                    'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'Content-Disposition': `attachment; filename="audit-report-${new Date().toISOString().split('T')[0]}.docx"`
+                });
+                res.end(buffer, 'binary');
+            }).catch(error => {
+                console.error('生成 Word 报告失败:', error);
+                return jsonRes(res, 500, { success: false, message: '生成报告失败' });
+            });
+            
+            // 记录导出操作
+            logAudit({
+                username: authResult.user.username,
+                userRole: authResult.user.role,
+                operationType: 'export',
+                dataType: 'audit',
+                ipAddress: getClientIp(req),
+                userAgent: req.headers['user-agent'] || 'unknown',
+                method: 'GET',
+                endpoint: '/api/audit/report',
+                status: 'success',
+                details: '导出审计报告'
+            });
+            
+            return;
+        }
+
         // 健康检查
         if (url === '/api/health' && method === 'GET') {
             const licenseStatus = validateLicense();
@@ -5031,3 +6245,8 @@ const server = http.createServer(async (req, res) => {
     });
 });
 
+
+// 启动服务器
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('服务器已启动：http://localhost:' + PORT);
+});
