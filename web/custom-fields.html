@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义字段管理 - 需求管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .toolbar {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s ease;
+            color: #6c757d;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .field-list {
+            list-style: none;
+        }
+
+        .field-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .field-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .field-info {
+            flex: 1;
+        }
+
+        .field-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 8px;
+        }
+
+        .field-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #6c757d;
+        }
+
+        .field-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .field-type {
+            background: #e9ecef;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .field-required {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .field-enabled {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .field-disabled {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .field-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #212529;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .modal-close:hover {
+            color: #212529;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #212529;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #212529;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .options-editor {
+            margin-top: 10px;
+        }
+
+        .option-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .option-item input {
+            flex: 1;
+        }
+
+        .option-item .btn-remove {
+            padding: 8px 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .sortable-handle {
+            cursor: move;
+            padding: 5px 10px;
+            color: #6c757d;
+            margin-right: 10px;
+        }
+
+        .field-item.dragging {
+            opacity: 0.5;
+        }
+
+        .field-item.drag-over {
+            border-top: 2px solid #667eea;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <button class="btn btn-secondary back-btn" onclick="window.location.href='home.html'">← 返回主页</button>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔧 自定义字段管理</h1>
+            <p>为需求和用例创建和管理自定义字段</p>
+        </div>
+
+        <div class="toolbar">
+            <div class="tabs">
+                <div class="tab active" data-tab="requirements">需求字段</div>
+                <div class="tab" data-tab="testcases">用例字段</div>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">+ 新建字段</button>
+        </div>
+
+        <div class="content">
+            <div id="alert" class="alert"></div>
+
+            <!-- 需求字段 -->
+            <div id="requirements-tab" class="tab-content active">
+                <ul class="field-list" id="requirement-fields"></ul>
+            </div>
+
+            <!-- 用例字段 -->
+            <div id="testcases-tab" class="tab-content">
+                <ul class="field-list" id="testcase-fields"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建/编辑字段模态框 -->
+    <div class="modal-overlay" id="fieldModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">新建自定义字段</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="fieldForm">
+                    <input type="hidden" id="fieldId">
+                    
+                    <div class="form-group">
+                        <label for="fieldName">字段名称 *</label>
+                        <input type="text" id="fieldName" required placeholder="例如：优先级、模块、版本">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fieldType">字段类型 *</label>
+                            <select id="fieldType" required onchange="onTypeChange()">
+                                <option value="text">文本</option>
+                                <option value="number">数字</option>
+                                <option value="date">日期</option>
+                                <option value="select">下拉选择</option>
+                                <option value="multiselect">多选</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="fieldScope">应用范围 *</label>
+                            <select id="fieldScope" required>
+                                <option value="requirement">需求</option>
+                                <option value="testcase">用例</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fieldDescription">字段描述</label>
+                        <textarea id="fieldDescription" placeholder="字段的用途说明（可选）"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="fieldRequired">
+                                <label for="fieldRequired">必填字段</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="fieldEnabled" checked>
+                                <label for="fieldEnabled">启用</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fieldDefault">默认值</label>
+                        <input type="text" id="fieldDefault" placeholder="字段的默认值（可选）">
+                    </div>
+
+                    <!-- 选项编辑器（仅下拉和多选显示） -->
+                    <div class="form-group" id="optionsGroup" style="display: none;">
+                        <label>选项列表</label>
+                        <div class="options-editor" id="optionsEditor">
+                            <div class="option-item">
+                                <input type="text" class="option-input" placeholder="选项值">
+                                <button type="button" class="btn-remove" onclick="removeOption(this)">删除</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" style="margin-top: 10px;" onclick="addOption()">+ 添加选项</button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveField()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fields = [];
+        let currentScope = 'requirement';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFields();
+            setupTabs();
+        });
+
+        // 加载字段列表
+        async function loadFields() {
+            try {
+                const response = await fetch('/api/custom-fields');
+                if (!response.ok) throw new Error('加载失败');
+                fields = await response.json();
+                renderFields();
+            } catch (error) {
+                showAlert('加载字段列表失败：' + error.message, 'error');
+            }
+        }
+
+        // 渲染字段列表
+        function renderFields() {
+            const reqFields = fields.filter(f => f.scope === 'requirement');
+            const tcFields = fields.filter(f => f.scope === 'testcase');
+
+            renderFieldList('requirement-fields', reqFields);
+            renderFieldList('testcase-fields', tcFields);
+        }
+
+        function renderFieldList(containerId, fieldList) {
+            const container = document.getElementById(containerId);
+            
+            if (fieldList.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>暂无自定义字段</h3>
+                        <p>点击右上角"新建字段"开始创建</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = fieldList.map(field => `
+                <li class="field-item" data-id="${field.id}" draggable="true">
+                    <div class="field-info">
+                        <div class="field-name">${escapeHtml(field.name)}</div>
+                        <div class="field-meta">
+                            <span class="field-type">${getTypeLabel(field.type)}</span>
+                            ${field.required ? '<span class="field-required">● 必填</span>' : ''}
+                            <span class="${field.enabled ? 'field-enabled' : 'field-disabled'}">
+                                ${field.enabled ? '✓ 启用' : '✗ 禁用'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="field-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editField('${field.id}')">编辑</button>
+                        <button class="btn btn-sm ${field.enabled ? 'btn-warning' : 'btn-success'}" 
+                                onclick="toggleField('${field.id}', ${!field.enabled})">
+                            ${field.enabled ? '禁用' : '启用'}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteField('${field.id}')">删除</button>
+                    </div>
+                </li>
+            `).join('');
+
+            setupDragAndDrop(container);
+        }
+
+        // 设置标签页
+        function setupTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const tabName = tab.dataset.tab;
+                    document.getElementById(`${tabName}-tab`).classList.add('active');
+                    currentScope = tabName;
+                });
+            });
+        }
+
+        // 打开创建模态框
+        function openCreateModal() {
+            document.getElementById('fieldForm').reset();
+            document.getElementById('fieldId').value = '';
+            document.getElementById('modalTitle').textContent = '新建自定义字段';
+            document.getElementById('fieldScope').value = currentScope;
+            document.getElementById('optionsGroup').style.display = 'none';
+            document.getElementById('fieldModal').classList.add('active');
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('fieldModal').classList.remove('active');
+        }
+
+        // 字段类型变化处理
+        function onTypeChange() {
+            const type = document.getElementById('fieldType').value;
+            const optionsGroup = document.getElementById('optionsGroup');
+            optionsGroup.style.display = (type === 'select' || type === 'multiselect') ? 'block' : 'none';
+        }
+
+        // 添加选项
+        function addOption() {
+            const editor = document.getElementById('optionsEditor');
+            const div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = `
+                <input type="text" class="option-input" placeholder="选项值">
+                <button type="button" class="btn-remove" onclick="removeOption(this)">删除</button>
+            `;
+            editor.appendChild(div);
+        }
+
+        // 删除选项
+        function removeOption(btn) {
+            btn.parentElement.remove();
+        }
+
+        // 编辑字段
+        function editField(id) {
+            const field = fields.find(f => f.id === id);
+            if (!field) return;
+
+            document.getElementById('fieldId').value = field.id;
+            document.getElementById('fieldName').value = field.name;
+            document.getElementById('fieldType').value = field.type;
+            document.getElementById('fieldScope').value = field.scope;
+            document.getElementById('fieldDescription').value = field.description || '';
+            document.getElementById('fieldRequired').checked = field.required;
+            document.getElementById('fieldEnabled').checked = field.enabled;
+            document.getElementById('fieldDefault').value = field.defaultValue || '';
+
+            onTypeChange();
+
+            if (field.type === 'select' || field.type === 'multiselect') {
+                const editor = document.getElementById('optionsEditor');
+                editor.innerHTML = '';
+                if (field.options && field.options.length > 0) {
+                    field.options.forEach(opt => {
+                        const div = document.createElement('div');
+                        div.className = 'option-item';
+                        div.innerHTML = `
+                            <input type="text" class="option-input" value="${escapeHtml(opt)}">
+                            <button type="button" class="btn-remove" onclick="removeOption(this)">删除</button>
+                        `;
+                        editor.appendChild(div);
+                    });
+                } else {
+                    addOption();
+                }
+            }
+
+            document.getElementById('modalTitle').textContent = '编辑自定义字段';
+            document.getElementById('fieldModal').classList.add('active');
+        }
+
+        // 保存字段
+        async function saveField() {
+            const id = document.getElementById('fieldId').value;
+            const name = document.getElementById('fieldName').value.trim();
+            const type = document.getElementById('fieldType').value;
+            const scope = document.getElementById('fieldScope').value;
+            const description = document.getElementById('fieldDescription').value.trim();
+            const required = document.getElementById('fieldRequired').checked;
+            const enabled = document.getElementById('fieldEnabled').checked;
+            const defaultValue = document.getElementById('fieldDefault').value.trim();
+
+            if (!name) {
+                showAlert('请输入字段名称', 'error');
+                return;
+            }
+
+            const fieldData = {
+                name,
+                type,
+                scope,
+                description,
+                required,
+                enabled,
+                defaultValue
+            };
+
+            if (type === 'select' || type === 'multiselect') {
+                const options = Array.from(document.querySelectorAll('.option-input'))
+                    .map(input => input.value.trim())
+                    .filter(val => val);
+                fieldData.options = options;
+            }
+
+            try {
+                const url = id ? `/api/custom-fields/${id}` : '/api/custom-fields';
+                const method = id ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fieldData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || '保存失败');
+                }
+
+                await loadFields();
+                closeModal();
+                showAlert(id ? '字段已更新' : '字段已创建', 'success');
+            } catch (error) {
+                showAlert('保存失败：' + error.message, 'error');
+            }
+        }
+
+        // 切换字段启用状态
+        async function toggleField(id, enabled) {
+            try {
+                const response = await fetch(`/api/custom-fields/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+
+                if (!response.ok) throw new Error('更新失败');
+
+                await loadFields();
+                showAlert(`字段已${enabled ? '启用' : '禁用'}`, 'success');
+            } catch (error) {
+                showAlert('操作失败：' + error.message, 'error');
+            }
+        }
+
+        // 删除字段
+        async function deleteField(id) {
+            if (!confirm('确定要删除这个字段吗？此操作不可恢复！')) return;
+
+            try {
+                const response = await fetch(`/api/custom-fields/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('删除失败');
+
+                await loadFields();
+                showAlert('字段已删除', 'success');
+            } catch (error) {
+                showAlert('删除失败：' + error.message, 'error');
+            }
+        }
+
+        // 设置拖拽排序
+        function setupDragAndDrop(container) {
+            let draggedItem = null;
+
+            container.querySelectorAll('.field-item').forEach(item => {
+                item.addEventListener('dragstart', function() {
+                    draggedItem = this;
+                    this.classList.add('dragging');
+                });
+
+                item.addEventListener('dragend', function() {
+                    this.classList.remove('dragging');
+                    draggedItem = null;
+                });
+
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('drag-over');
+                });
+
+                item.addEventListener('dragleave', function() {
+                    this.classList.remove('drag-over');
+                });
+
+                item.addEventListener('drop', function() {
+                    this.classList.remove('drag-over');
+                    if (draggedItem && draggedItem !== this) {
+                        // 这里可以添加排序 API 调用
+                        const fromId = draggedItem.dataset.id;
+                        const toId = this.dataset.id;
+                        reorderFields(fromId, toId);
+                    }
+                });
+            });
+        }
+
+        // 重排序字段（待实现 API）
+        async function reorderFields(fromId, toId) {
+            // TODO: 调用 API 更新排序
+            console.log('Reorder from', fromId, 'to', toId);
+        }
+
+        // 显示提示消息
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 3000);
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 获取类型标签
+        function getTypeLabel(type) {
+            const labels = {
+                text: '文本',
+                number: '数字',
+                date: '日期',
+                select: '下拉',
+                multiselect: '多选'
+            };
+            return labels[type] || type;
+        }
+    </script>
+</body>
+</html>
