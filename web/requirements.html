@@ -11,6 +11,173 @@
     <!-- 导航树组件脚本 -->
     <script src="navigation-tree.js"></script>
     <style>
+        /* ========== 需求详情页样式 - 左右分栏布局 ========== */
+        .detail-container {
+            display: none;
+            height: calc(100vh - 130px);
+        }
+        .detail-container.active {
+            display: flex;
+        }
+        .detail-split {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            gap: 20px;
+        }
+        .detail-left {
+            flex: 1;
+            min-width: 400px;
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .detail-right {
+            flex: 1;
+            min-width: 400px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e1e1e1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e1e1e1;
+            background: #fafafa;
+        }
+        .detail-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .detail-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .detail-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .field-group {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e1e1e1;
+        }
+        .field-group.p0 {
+            border-left: 4px solid #667eea;
+        }
+        .field-group.p1 {
+            border-left: 4px solid #f59e0b;
+        }
+        .field-group.p2 {
+            border-left: 4px solid #6b7280;
+        }
+        .field-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .field-label .priority-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .priority-badge.p0 {
+            background: #667eea;
+            color: white;
+        }
+        .priority-badge.p1 {
+            background: #f59e0b;
+            color: white;
+        }
+        .priority-badge.p2 {
+            background: #6b7280;
+            color: white;
+        }
+        .field-value {
+            font-size: 14px;
+            color: #333;
+            min-height: 20px;
+        }
+        .field-value.editable {
+            padding: 8px;
+            border-radius: 4px;
+            cursor: text;
+            border: 1px solid transparent;
+        }
+        .field-value.editable:hover {
+            background: #f5f5f5;
+            border-color: #e1e1e1;
+        }
+        .field-value.editable:focus {
+            outline: none;
+            background: white;
+            border-color: #667eea;
+        }
+        .field-value:empty::before {
+            content: '点击编辑';
+            color: #999;
+            font-style: italic;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-badge.draft { background: #f3f4f6; color: #374151; }
+        .status-badge.active { background: #dbeafe; color: #1e40af; }
+        .status-badge.completed { background: #d1fae5; color: #065f46; }
+        .status-badge.archived { background: #f3f4f6; color: #6b7280; }
+        .priority-badge-inline {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .priority-badge-inline.high { background: #fee2e2; color: #991b1b; }
+        .priority-badge-inline.medium { background: #fef3c7; color: #92400e; }
+        .priority-badge-inline.low { background: #d1fae5; color: #065f46; }
+        .back-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+        .back-button:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+        .ql-editor {
+            font-size: 14px !important;
+        }
+        
+        /* ========== 原有样式保留 ========== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -846,6 +1013,123 @@
                 <h3>请先选择或创建一个项目</h3>
                 <p>点击"+ 新建项目"按钮开始</p>
             </div>
+
+            <!-- ========== 需求详情页 - 左右分栏布局 ========== -->
+            <div class="detail-container" id="requirementDetail">
+                <div class="detail-split">
+                    <!-- 左侧：P0/P1/P2 字段编辑区 -->
+                    <div class="detail-left">
+                        <button class="back-button" onclick="closeRequirementDetail()">
+                            ← 返回列表
+                        </button>
+
+                        <!-- P0 字段 - 核心 -->
+                        <div class="field-group p0">
+                            <div class="field-label">
+                                <span>📋 需求标题</span>
+                                <span class="priority-badge p0">P0 必显</span>
+                            </div>
+                            <div class="field-value editable" id="detailTitle" contenteditable="true"></div>
+                        </div>
+
+                        <div class="field-group p0">
+                            <div class="field-label">
+                                <span>🎯 状态</span>
+                                <span class="priority-badge p0">P0 必显</span>
+                            </div>
+                            <select id="detailStatus" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e1e1e1;">
+                                <option value="draft">📝 草稿</option>
+                                <option value="review">👀 评审中</option>
+                                <option value="approved">✅ 已批准</option>
+                                <option value="completed">✔️ 已完成</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group p0">
+                            <div class="field-label">
+                                <span>🔥 优先级</span>
+                                <span class="priority-badge p0">P0 必显</span>
+                            </div>
+                            <select id="detailPriority" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e1e1e1;">
+                                <option value="urgent">🔴 紧急</option>
+                                <option value="high">🟠 高</option>
+                                <option value="medium">🟡 中</option>
+                                <option value="low">🟢 低</option>
+                            </select>
+                        </div>
+
+                        <!-- P1 字段 - 重要 -->
+                        <div class="field-group p1">
+                            <div class="field-label">
+                                <span>📂 所属分类</span>
+                                <span class="priority-badge p1">P1 重要</span>
+                            </div>
+                            <select id="detailCategory" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e1e1e1;">
+                                <option value="用户需求">👤 用户需求</option>
+                                <option value="产品需求">🏭 产品需求</option>
+                                <option value="可用性需求">🎯 可用性需求</option>
+                                <option value="网络安全">🔒 网络安全</option>
+                                <option value="法规标准">📜 法规标准</option>
+                                <option value="风险管理">⚠️ 风险管理</option>
+                                <option value="子系统">⚙️ 子系统</option>
+                                <option value="部件">🔧 部件</option>
+                                <option value="详细设计">📐 详细设计</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group p1">
+                            <div class="field-label">
+                                <span>👤 负责人</span>
+                                <span class="priority-badge p1">P1 重要</span>
+                            </div>
+                            <div class="field-value editable" id="detailAssignee" contenteditable="true"></div>
+                        </div>
+
+                        <!-- P2 字段 - 可选 -->
+                        <div class="field-group p2">
+                            <div class="field-label">
+                                <span>🏷️ 验收标准</span>
+                                <span class="priority-badge p2">P2 可选</span>
+                            </div>
+                            <div class="field-value editable" id="detailAcceptance" contenteditable="true" style="min-height: 60px;"></div>
+                        </div>
+
+                        <div class="field-group p2">
+                            <div class="field-label">
+                                <span>📅 创建时间</span>
+                                <span class="priority-badge p2">P2 可选</span>
+                            </div>
+                            <div class="field-value" id="detailCreatedAt"></div>
+                        </div>
+
+                        <div class="field-group p2">
+                            <div class="field-label">
+                                <span>📝 修改时间</span>
+                                <span class="priority-badge p2">P2 可选</span>
+                            </div>
+                            <div class="field-value" id="detailUpdatedAt"></div>
+                        </div>
+
+                        <!-- 保存按钮 -->
+                        <button class="btn-primary" onclick="saveRequirementDetail()" style="width: 100%; justify-content: center; padding: 12px;">
+                            💾 保存修改
+                        </button>
+                    </div>
+
+                    <!-- 右侧：富文本描述区 -->
+                    <div class="detail-right">
+                        <div class="detail-header">
+                            <div class="detail-title">📄 需求描述</div>
+                            <div class="detail-actions">
+                                <button class="btn-outline btn-sm" onclick="expandEditor()">⛶ 全屏</button>
+                            </div>
+                        </div>
+                        <div class="detail-content">
+                            <div id="detailEditor" class="editor-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1642,7 +1926,123 @@
 
         // 全局变量用于存储过滤后的数据
         let filteredRequirementsData = [];
+        let currentDetailRequirementId = null;
+        let detailEditor = null;
+
+        // ========== 需求详情页功能 ==========
         
+        // 打开需求详情页
+        function openRequirementDetail(reqId) {
+            const req = requirementsData.find(r => r.id === reqId);
+            if (!req) return;
+
+            currentDetailRequirementId = reqId;
+
+            // 填充 P0/P1/P2 字段
+            document.getElementById('detailTitle').textContent = req.title || '';
+            document.getElementById('detailStatus').value = req.status || 'draft';
+            document.getElementById('detailPriority').value = req.priority || 'medium';
+            document.getElementById('detailCategory').value = req.category || '用户需求';
+            document.getElementById('detailAssignee').textContent = req.assignee || '';
+            document.getElementById('detailAcceptance').textContent = req.acceptanceCriteria || '';
+            document.getElementById('detailCreatedAt').textContent = req.createdAt ? new Date(req.createdAt).toLocaleString('zh-CN') : '-';
+            document.getElementById('detailUpdatedAt').textContent = req.updatedAt ? new Date(req.updatedAt).toLocaleString('zh-CN') : '-';
+
+            // 初始化详情编辑器
+            if (!detailEditor) {
+                detailEditor = new Quill('#detailEditor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'color': [] }, { 'background': [] }],
+                            [{ 'font': [] }],
+                            [{ 'align': [] }],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            [{ 'indent': '-1'}, { 'indent': '+1' }],
+                            ['link', 'image', 'video'],
+                            [{ 'table': 'table' }],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: '请输入详细的需求描述...'
+                });
+            }
+
+            // 设置编辑器内容
+            detailEditor.root.innerHTML = req.description || '';
+
+            // 切换视图
+            document.getElementById('requirementsView').style.display = 'none';
+            document.getElementById('requirementDetail').classList.add('active');
+        }
+
+        // 关闭需求详情页
+        function closeRequirementDetail() {
+            document.getElementById('requirementDetail').classList.remove('active');
+            document.getElementById('requirementsView').style.display = 'block';
+            currentDetailRequirementId = null;
+        }
+
+        // 保存需求详情
+        async function saveRequirementDetail() {
+            if (!currentDetailRequirementId) return;
+
+            const updates = {
+                title: document.getElementById('detailTitle').textContent.trim(),
+                status: document.getElementById('detailStatus').value,
+                priority: document.getElementById('detailPriority').value,
+                category: document.getElementById('detailCategory').value,
+                assignee: document.getElementById('detailAssignee').textContent.trim(),
+                acceptanceCriteria: document.getElementById('detailAcceptance').textContent.trim(),
+                description: detailEditor.root.innerHTML
+            };
+
+            // 验证必填字段
+            if (!updates.title) {
+                showToast('请输入需求标题', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/requirements/${currentDetailRequirementId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('保存成功', 'success');
+                    // 重新加载列表
+                    await loadRequirements();
+                    // 关闭详情页
+                    closeRequirementDetail();
+                } else {
+                    showToast(data.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showToast('保存失败，请重试', 'error');
+            }
+        }
+
+        // 全屏编辑器
+        function expandEditor() {
+            const detailRight = document.querySelector('.detail-right');
+            const detailLeft = document.querySelector('.detail-left');
+            
+            if (detailRight.style.flex === '2') {
+                detailRight.style.flex = '1';
+                detailLeft.style.display = 'flex';
+            } else {
+                detailRight.style.flex = '2';
+                detailLeft.style.display = 'none';
+            }
+        }
+
         async function loadRequirements() {
             if (!currentProjectId) return;
             try {
@@ -1708,7 +2108,7 @@
                 tr.innerHTML = `
                     <td><input type="checkbox" class="item-checkbox" data-id="${req.id}" onchange="updateSelectedReqs()"></td>
                     <td><strong>${req.reqId || '-'}</strong></td>
-                    <td>
+                    <td style="cursor: pointer;" onclick="openRequirementDetail('${req.id}')">
                         <div style="font-weight: 500; color: #333;">${req.title || req.reqId || '未命名'}</div>
                         ${descPreview ? `<div class="description-preview">${descPreview}${descPreview.length >= 80 ? '...' : ''}</div>` : ''}
                     </td>
@@ -1723,12 +2123,13 @@
                     </td>
                     <td>
                         <div class="action-menu">
-                            <button class="action-menu-btn" onclick="toggleActionMenu(this)">⋮</button>
+                            <button class="action-menu-btn" onclick="event.stopPropagation(); toggleActionMenu(this)">⋮</button>
                             <div class="action-menu-content">
-                                <button onclick="editRequirement('${req.id}')">✏️ 编辑</button>
-                                <button onclick="linkTrace('${req.id}')">🔗 关联用例</button>
-                                <button onclick="viewHistory('requirement', '${req.id}')">📜 历史</button>
-                                <button onclick="deleteRequirement('${req.id}')" style="color: #e74c3c;">🗑️ 删除</button>
+                                <button onclick="event.stopPropagation(); openRequirementDetail('${req.id}')">👁️ 查看详情</button>
+                                <button onclick="event.stopPropagation(); editRequirement('${req.id}')">✏️ 编辑</button>
+                                <button onclick="event.stopPropagation(); linkTrace('${req.id}')">🔗 关联用例</button>
+                                <button onclick="event.stopPropagation(); viewHistory('requirement', '${req.id}')">📜 历史</button>
+                                <button onclick="event.stopPropagation(); deleteRequirement('${req.id}')" style="color: #e74c3c;">🗑️ 删除</button>
                             </div>
                         </div>
                     </td>
