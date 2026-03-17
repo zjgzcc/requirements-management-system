@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const formidable = require('formidable');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType } = require('docx');
+const XLSX = require('xlsx');
 
 // 引入基础设施模块
 const {
@@ -435,21 +437,125 @@ function getNextId(type) {
     return idCounter[type];
 }
 
-// 记录修改历史
-function recordHistory(type, itemId, action, changes, userId = 'system') {
+// 分析变更类型和影响范围
+function analyzeChanges(oldData, newData) {
+    const changes = [];
+    const changeTypeMap = {
+        title: '内容变更',
+        description: '内容变更',
+        acceptanceCriteria: '验收标准变更',
+        steps: '步骤变更',
+        expectedResult: '预期结果变更',
+        richContent: '富文本变更',
+        status: '状态变更',
+        priority: '优先级变更',
+        category: '分类变更',
+        assignee: '负责人变更',
+        headerId: '层级变更'
+    };
+    
+    const impactLevelMap = {
+        title: 'high',
+        description: 'high',
+        acceptanceCriteria: 'high',
+        steps: 'high',
+        expectedResult: 'high',
+        richContent: 'medium',
+        status: 'medium',
+        priority: 'medium',
+        category: 'low',
+        assignee: 'low',
+        headerId: 'low'
+    };
+    
+    Object.keys(newData).forEach(key => {
+        if (oldData[key] !== newData[key] && !key.startsWith('_')) {
+            const oldValue = oldData[key];
+            const newValue = newData[key];
+            
+            // 计算差异（简化版 diff）
+            let diffType = 'modified';
+            if (oldValue === undefined || oldValue === null) {
+                diffType = 'added';
+            } else if (newValue === null || newValue === '') {
+                diffType = 'removed';
+            }
+            
+            changes.push({
+                field: key,
+                fieldName: changeTypeMap[key] || key,
+                oldValue: oldValue || '',
+                newValue: newValue || '',
+                changeType: diffType, // 'added', 'removed', 'modified'
+                impactLevel: impactLevelMap[key] || 'medium', // 'high', 'medium', 'low'
+                annotation: generateChangeAnnotation(key, oldValue, newValue)
+            });
+        }
+    });
+    
+    return changes;
+}
+
+// 生成变更批注
+function generateChangeAnnotation(field, oldValue, newValue) {
+    const annotations = {
+        status: `状态从 "${oldValue || '无'}" 变更为 "${newValue || '无'}"`,
+        priority: `优先级从 "${oldValue || '无'}" 调整为 "${newValue || '无'}"`,
+        assignee: `负责人从 "${oldValue || '无'}" 移交至 "${newValue || '无'}"`,
+        title: `标题更新`,
+        description: `描述内容已修改`,
+        acceptanceCriteria: `验收标准已更新`,
+        steps: `操作步骤已变更`,
+        expectedResult: `预期结果已调整`,
+        category: `分类从 "${oldValue || '无'}" 改为 "${newValue || '无'}"`
+    };
+    return annotations[field] || `${field} 字段已更新`;
+}
+
+// 记录修改历史（增强版 - 支持批注和审计）
+function recordHistory(type, itemId, action, changes, userId = 'system', options = {}) {
+    const { oldData, newData, baselineId, impactSummary, operationSource = 'manual' } = options;
+    
+    // 分析变更（如果有新旧数据）
+    let analyzedChanges = changes;
+    if (oldData && newData && action === 'update') {
+        analyzedChanges = analyzeChanges(oldData, newData);
+    }
+    
+    // 计算影响范围统计
+    const impactStats = analyzedChanges && Array.isArray(analyzedChanges) ? {
+        high: analyzedChanges.filter(c => c.impactLevel === 'high').length,
+        medium: analyzedChanges.filter(c => c.impactLevel === 'medium').length,
+        low: analyzedChanges.filter(c => c.impactLevel === 'low').length,
+        total: analyzedChanges.length
+    } : null;
+    
     const record = {
         id: generateUniqueId(),
         type, // 'requirement' or 'testcase'
         itemId,
-        action, // 'create', 'update', 'delete', 'baseline'
-        changes,
+        action, // 'create', 'update', 'delete', 'baseline', 'restore', 'execute'
+        changes: analyzedChanges,
+        rawChanges: changes, // 保留原始变更数据
         userId,
-        timestamp: new Date().toISOString()
+        operationSource, // 'manual', 'api', 'batch', 'restore', 'import'
+        impactStats,
+        impactSummary: impactSummary || null,
+        baselineId: baselineId || null,
+        timestamp: new Date().toISOString(),
+        // 审计字段
+        audit: {
+            ipAddress: options.ipAddress || 'localhost',
+            userAgent: options.userAgent || 'system',
+            sessionId: options.sessionId || null,
+            reason: options.reason || null // 变更原因说明
+        }
     };
+    
     history.push(record);
-    // 保留最近 1000 条记录
-    if (history.length > 1000) {
-        history = history.slice(-1000);
+    // 保留最近 2000 条记录（增加容量）
+    if (history.length > 2000) {
+        history = history.slice(-2000);
     }
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
     return record;
@@ -794,7 +900,7 @@ async function handleApiRequest(req, res, fullUrl) {
                 return jsonRes(res, 404, { success: false, message: '需求不存在' });
             }
 
-            const oldData = { ...requirements[reqIndex] };
+            const oldData = JSON.parse(JSON.stringify(requirements[reqIndex]));
             const { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, columns, richContent } = body;
             
             // P0 字段
@@ -815,13 +921,24 @@ async function handleApiRequest(req, res, fullUrl) {
             
             requirements[reqIndex].updatedAt = new Date().toISOString();
 
+            // 记录详细历史（带变更分析）
             recordHistory('requirement', reqId, 'update', { 
                 oldData, 
                 newData: { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, richContent } 
+            }, 'system', {
+                oldData,
+                newData: { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, richContent },
+                operationSource: 'api',
+                reason: body.changeReason || null // 允许前端传入变更原因
             });
             saveData();
 
-            return jsonRes(res, 200, { success: true, message: '需求更新成功', data: requirements[reqIndex] });
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: '需求更新成功', 
+                data: requirements[reqIndex],
+                changes: analyzeChanges(oldData, { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, richContent })
+            });
         }
 
         if (url.match(/^\/api\/requirements\/[^\/]+$/) && method === 'DELETE') {
@@ -911,7 +1028,7 @@ async function handleApiRequest(req, res, fullUrl) {
                 return jsonRes(res, 404, { success: false, message: '用例不存在' });
             }
 
-            const oldData = { ...testcases[tcIndex] };
+            const oldData = JSON.parse(JSON.stringify(testcases[tcIndex]));
             const { steps, expectedResult, columns, title, type, status, priority, assignee, 
                     richContent, headerId, lastExecuted } = body;
             if (title !== undefined) testcases[tcIndex].title = title;
@@ -927,13 +1044,24 @@ async function handleApiRequest(req, res, fullUrl) {
             if (columns !== undefined) testcases[tcIndex].columns = columns;
             testcases[tcIndex].updatedAt = new Date().toISOString();
 
+            // 记录详细历史（带变更分析）
             recordHistory('testcase', tcId, 'update', { 
                 oldData, 
                 newData: { steps, expectedResult, columns, title, type, status, priority, assignee, richContent, lastExecuted } 
+            }, 'system', {
+                oldData,
+                newData: { steps, expectedResult, columns, title, type, status, priority, assignee, richContent, lastExecuted },
+                operationSource: 'api',
+                reason: body.changeReason || null
             });
             saveData();
 
-            return jsonRes(res, 200, { success: true, message: '用例更新成功', data: testcases[tcIndex] });
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: '用例更新成功', 
+                data: testcases[tcIndex],
+                changes: analyzeChanges(oldData, { steps, expectedResult, columns, title, type, status, priority, assignee, richContent, lastExecuted })
+            });
         }
 
         if (url.match(/^\/api\/testcases\/[^\/]+$/) && method === 'DELETE') {
@@ -2284,7 +2412,7 @@ async function handleApiRequest(req, res, fullUrl) {
         if (url.match(/^\/api\/baselines\/[^\/]+\/restore$/) && method === 'POST') {
             const baselineId = url.split('/')[3];
             const body = await parseBody(req);
-            const { createBackup = true } = body; // 是否创建备份基线
+            const { createBackup = true, reason = '' } = body; // 是否创建备份，恢复原因
             const baseline = baselines.find(b => b.id === baselineId);
             
             if (!baseline) {
@@ -2338,11 +2466,20 @@ async function handleApiRequest(req, res, fullUrl) {
                         reqId: baselineItem.reqId,
                         hasChanges: JSON.stringify(oldData) !== JSON.stringify(baselineItem.snapshot)
                     });
+                    // 记录恢复操作的历史
                     recordHistory(baseline.type, baselineItem.id, 'restore', { 
                         oldData, 
                         newData: baselineItem.snapshot,
                         baselineId,
-                        baselineVersion: baseline.version
+                        baselineVersion: baseline.version,
+                        reason
+                    }, 'system', {
+                        oldData,
+                        newData: baselineItem.snapshot,
+                        baselineId,
+                        baselineVersion: baseline.version,
+                        operationSource: 'restore',
+                        reason: reason || `从基线版本 ${baseline.version} 恢复`
                     });
                 } else {
                     // 添加缺失项
@@ -2358,7 +2495,14 @@ async function handleApiRequest(req, res, fullUrl) {
                         action: 'restored',
                         newData: baselineItem.snapshot,
                         baselineId,
-                        baselineVersion: baseline.version
+                        baselineVersion: baseline.version,
+                        reason
+                    }, 'system', {
+                        newData: baselineItem.snapshot,
+                        baselineId,
+                        baselineVersion: baseline.version,
+                        operationSource: 'restore',
+                        reason: reason || `从基线版本 ${baseline.version} 恢复`
                     });
                 }
             });
@@ -2373,6 +2517,20 @@ async function handleApiRequest(req, res, fullUrl) {
                 hasChanges: restoredCount.filter(r => r.hasChanges).length,
                 backupCreated: backupItems.length > 0
             };
+
+            // 记录基线恢复的汇总日志
+            recordHistory(baseline.type, 'baseline', 'restore', {
+                baselineId,
+                baselineVersion: baseline.version,
+                baselineName: baseline.name,
+                restoredItems: restoredCount.length,
+                backupCreated: backupItems.length > 0,
+                reason
+            }, 'system', {
+                operationSource: 'restore',
+                reason: reason || `从基线版本 ${baseline.version} 恢复`,
+                impactSummary: `恢复 ${stats.total} 项，其中更新 ${stats.updated} 项，还原 ${stats.restored} 项`
+            });
 
             return jsonRes(res, 200, { 
                 success: true, 
@@ -2899,12 +3057,17 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, data: exportData });
         }
 
-        // ===== 历史记录 API =====
+        // ===== 历史记录 API（增强版） =====
         if (url === '/api/history' && method === 'GET') {
             const urlObj = new URL('http://localhost' + fullUrl);
             const itemId = urlObj.searchParams.get('itemId');
             const type = urlObj.searchParams.get('type');
-            const limit = parseInt(urlObj.searchParams.get('limit')) || 50;
+            const action = urlObj.searchParams.get('action'); // 按操作类型过滤
+            const userId = urlObj.searchParams.get('userId'); // 按用户过滤
+            const startDate = urlObj.searchParams.get('startDate'); // 开始日期
+            const endDate = urlObj.searchParams.get('endDate'); // 结束日期
+            const limit = parseInt(urlObj.searchParams.get('limit')) || 100;
+            const includeAnalysis = urlObj.searchParams.get('analysis') === 'true'; // 是否包含分析数据
             
             let filteredHistory = history;
             if (itemId) {
@@ -2913,10 +3076,125 @@ async function handleApiRequest(req, res, fullUrl) {
             if (type) {
                 filteredHistory = filteredHistory.filter(h => h.type === type);
             }
+            if (action) {
+                filteredHistory = filteredHistory.filter(h => h.action === action);
+            }
+            if (userId) {
+                filteredHistory = filteredHistory.filter(h => h.userId === userId);
+            }
+            if (startDate) {
+                filteredHistory = filteredHistory.filter(h => new Date(h.timestamp) >= new Date(startDate));
+            }
+            if (endDate) {
+                filteredHistory = filteredHistory.filter(h => new Date(h.timestamp) <= new Date(endDate));
+            }
             
             // 按时间倒序，返回最新的记录
             const sorted = filteredHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            return jsonRes(res, 200, { success: true, data: sorted.slice(0, limit) });
+            
+            // 生成统计摘要
+            const stats = {
+                total: sorted.length,
+                byAction: {},
+                byType: {},
+                byUser: {},
+                recentChanges: sorted.slice(0, 10).map(h => ({
+                    id: h.id,
+                    action: h.action,
+                    type: h.type,
+                    itemId: h.itemId,
+                    timestamp: h.timestamp,
+                    userId: h.userId,
+                    changeCount: h.changes?.length || 0
+                }))
+            };
+            
+            // 统计各维度
+            sorted.forEach(h => {
+                stats.byAction[h.action] = (stats.byAction[h.action] || 0) + 1;
+                stats.byType[h.type] = (stats.byType[h.type] || 0) + 1;
+                stats.byUser[h.userId] = (stats.byUser[h.userId] || 0) + 1;
+            });
+            
+            const result = {
+                success: true,
+                data: sorted.slice(0, limit),
+                stats: includeAnalysis ? stats : undefined,
+                pagination: {
+                    total: sorted.length,
+                    limit,
+                    hasMore: sorted.length > limit
+                }
+            };
+            
+            return jsonRes(res, 200, result);
+        }
+
+        // ===== 获取单个历史记录详情 =====
+        if (url.match(/^\/api\/history\/[^\/]+$/) && method === 'GET') {
+            const historyId = url.split('/')[3];
+            const record = history.find(h => h.id === historyId);
+            
+            if (!record) {
+                return jsonRes(res, 404, { success: false, message: '历史记录不存在' });
+            }
+            
+            // 补充相关项的当前状态
+            let currentItem = null;
+            if (record.type === 'requirement') {
+                currentItem = requirements.find(r => r.id === record.itemId);
+            } else if (record.type === 'testcase') {
+                currentItem = testcases.find(t => t.id === record.itemId);
+            }
+            
+            return jsonRes(res, 200, {
+                success: true,
+                data: {
+                    ...record,
+                    currentItem: currentItem ? {
+                        id: currentItem.id,
+                        reqId: currentItem.reqId || currentItem.tcId,
+                        title: currentItem.title || currentItem.steps,
+                        status: currentItem.status
+                    } : null
+                }
+            });
+        }
+
+        // ===== 导出审计日志 API =====
+        if (url === '/api/history/export' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const format = urlObj.searchParams.get('format') || 'csv';
+            const startDate = urlObj.searchParams.get('startDate');
+            const endDate = urlObj.searchParams.get('endDate');
+            
+            let filteredHistory = history;
+            if (startDate) {
+                filteredHistory = filteredHistory.filter(h => new Date(h.timestamp) >= new Date(startDate));
+            }
+            if (endDate) {
+                filteredHistory = filteredHistory.filter(h => new Date(h.timestamp) <= new Date(endDate));
+            }
+            
+            const sorted = filteredHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (format === 'json') {
+                return jsonRes(res, 200, { success: true, data: sorted });
+            } else if (format === 'csv') {
+                let csv = '时间，操作类型，数据类型，数据 ID，用户，变更数量，影响等级，操作来源\n';
+                sorted.forEach(h => {
+                    const impactLevel = h.impactStats 
+                        ? `高:${h.impactStats.high}/中:${h.impactStats.medium}/低:${h.impactStats.low}`
+                        : '-';
+                    csv += `"${h.timestamp}","${h.action}","${h.type}","${h.itemId}","${h.userId}",${h.changes?.length || 0},"${impactLevel}","${h.operationSource || 'manual'}"\n`;
+                });
+                
+                res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename="audit_log_${new Date().toISOString().split('T')[0]}.csv"`);
+                res.writeHead(200);
+                res.end('\ufeff' + csv);
+                return;
+            }
         }
 
         // ===== 基础设施监控 API =====
@@ -2947,6 +3225,90 @@ async function handleApiRequest(req, res, fullUrl) {
                 version: '1.0.0',
                 license: licenseStatus
             }, '系统健康'));
+        }
+
+        // ===== 仪表盘统计 API =====
+        // 获取仪表盘统计数据
+        if (url === '/api/dashboard/stats' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            // 过滤数据
+            let filteredReqs = requirements;
+            let filteredTcs = testcases;
+            let filteredProjects = projects;
+            
+            if (projectId) {
+                filteredReqs = requirements.filter(r => r.projectId === projectId);
+                filteredTcs = testcases.filter(t => t.projectId === projectId);
+                filteredProjects = projects.filter(p => p.id === projectId);
+            }
+            
+            // 统计不同状态的数量
+            const reqStats = {
+                total: filteredReqs.length,
+                draft: filteredReqs.filter(r => r.status === 'draft').length,
+                review: filteredReqs.filter(r => r.status === 'review').length,
+                active: filteredReqs.filter(r => r.status === 'active').length,
+                completed: filteredReqs.filter(r => r.status === 'completed').length
+            };
+            
+            const tcStats = {
+                total: filteredTcs.length,
+                not_executed: filteredTcs.filter(t => t.status === 'not_executed').length,
+                passed: filteredTcs.filter(t => t.status === 'passed').length,
+                failed: filteredTcs.filter(t => t.status === 'failed').length,
+                blocked: filteredTcs.filter(t => t.status === 'blocked').length
+            };
+            
+            // 计算执行率和通过率
+            const executed = tcStats.passed + tcStats.failed;
+            const executionRate = filteredTcs.length > 0 ? Math.round(executed / filteredTcs.length * 100) : 0;
+            const passRate = executed > 0 ? Math.round(tcStats.passed / executed * 100) : 0;
+            
+            // 计算追踪覆盖率
+            const coveredReqs = new Set(traces.filter(t => 
+                filteredReqs.some(r => r.id === t.requirementId)
+            ).map(t => t.requirementId)).size;
+            const traceCoverage = filteredReqs.length > 0 ? Math.round(coveredReqs / filteredReqs.length * 100) : 0;
+            
+            // 最近 7 天的需求创建趋势
+            const trendData = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const count = filteredReqs.filter(r => 
+                    new Date(r.createdAt).toISOString().split('T')[0] === dateStr
+                ).length;
+                trendData.push({ date: dateStr, count });
+            }
+            
+            // 待办事项统计
+            const todoCount = reqStats.draft + reqStats.review + tcStats.not_executed + tcStats.failed;
+            
+            return jsonRes(res, 200, createSuccessResponse({
+                summary: {
+                    totalRequirements: reqStats.total,
+                    totalTestcases: tcStats.total,
+                    totalProjects: filteredProjects.length,
+                    traceCoverage,
+                    executionRate,
+                    passRate,
+                    todoCount
+                },
+                requirements: reqStats,
+                testcases: tcStats,
+                trend: trendData,
+                recentActivities: history.slice(0, 10).map(h => ({
+                    id: h.id,
+                    type: h.type,
+                    action: h.action,
+                    timestamp: h.timestamp,
+                    itemId: h.itemId
+                }))
+            }, '仪表盘统计数据'));
         }
 
         // 404
