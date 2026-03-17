@@ -742,7 +742,7 @@ async function handleApiRequest(req, res, fullUrl) {
 
         if (url === '/api/requirements' && method === 'POST') {
             const body = await parseBody(req);
-            const { projectId, prefix, description, acceptanceCriteria, headerId, savePrefix, richContent } = body;
+            const { projectId, prefix, title, category, status, priority, assignee, description, acceptanceCriteria, headerId, savePrefix, richContent, attachments } = body;
 
             if (!projectId) {
                 return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
@@ -756,18 +756,25 @@ async function handleApiRequest(req, res, fullUrl) {
                 reqId,
                 projectId,
                 prefix: prefix || 'REQ',
+                title: title || '',
+                category: category || '用户需求',
+                status: status || 'draft',
+                priority: priority || 'medium',
+                assignee: assignee || '',
                 description: description || '',
                 acceptanceCriteria: acceptanceCriteria || '',
                 headerId: headerId || null,
                 richContent: richContent || null,
-                attachments: [],
+                attachments: attachments || [],
                 columns: columns || [{ id: generateUniqueId(), name: '描述', type: 'text', value: description || '' }],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
 
             requirements.push(newRequirement);
-            recordHistory('requirement', newRequirement.id, 'create', { description, acceptanceCriteria, richContent });
+            recordHistory('requirement', newRequirement.id, 'create', { 
+                title, category, status, priority, assignee, description, acceptanceCriteria, richContent 
+            });
             
             if (savePrefix && prefix) {
                 prefixes.requirement = prefix;
@@ -788,14 +795,30 @@ async function handleApiRequest(req, res, fullUrl) {
             }
 
             const oldData = { ...requirements[reqIndex] };
-            const { description, acceptanceCriteria, headerId, columns } = body;
+            const { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, columns, richContent } = body;
+            
+            // P0 字段
+            if (title !== undefined) requirements[reqIndex].title = title;
+            if (status !== undefined) requirements[reqIndex].status = status;
+            if (priority !== undefined) requirements[reqIndex].priority = priority;
+            
+            // P1 字段
+            if (category !== undefined) requirements[reqIndex].category = category;
+            if (assignee !== undefined) requirements[reqIndex].assignee = assignee;
+            
+            // 其他字段
             if (description !== undefined) requirements[reqIndex].description = description;
             if (acceptanceCriteria !== undefined) requirements[reqIndex].acceptanceCriteria = acceptanceCriteria;
             if (headerId !== undefined) requirements[reqIndex].headerId = headerId;
             if (columns !== undefined) requirements[reqIndex].columns = columns;
+            if (richContent !== undefined) requirements[reqIndex].richContent = richContent;
+            
             requirements[reqIndex].updatedAt = new Date().toISOString();
 
-            recordHistory('requirement', reqId, 'update', { oldData, newData: { description, acceptanceCriteria, headerId } });
+            recordHistory('requirement', reqId, 'update', { 
+                oldData, 
+                newData: { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, richContent } 
+            });
             saveData();
 
             return jsonRes(res, 200, { success: true, message: '需求更新成功', data: requirements[reqIndex] });
@@ -834,7 +857,7 @@ async function handleApiRequest(req, res, fullUrl) {
         if (url === '/api/testcases' && method === 'POST') {
             const body = await parseBody(req);
             const { projectId, prefix, steps, expectedResult, headerId, savePrefix, richContent, 
-                    title, type, status, priority, assignee } = body;
+                    title, type, status, priority, assignee, columns } = body;
 
             if (!projectId) {
                 return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });

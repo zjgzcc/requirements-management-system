@@ -11,5 +11,152 @@
     },
     "userId": "system",
     "timestamp": "2026-03-16T07:56:32.573Z"
+  },
+  {
+    "id": "mmu219ju52xd1zilbo3",
+    "type": "testcase",
+    "itemId": "mmu219juxbbaeukumzq",
+    "action": "create",
+    "changes": {
+      "expectedResult": "成功登录",
+      "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
+      "title": "登录功能测试",
+      "type": "功能测试",
+      "status": "not_executed",
+      "priority": "high",
+      "assignee": "张三"
+    },
+    "userId": "system",
+    "timestamp": "2026-03-17T03:30:25.050Z"
+  },
+  {
+    "id": "mmu219kcpp08djy9vle",
+    "type": "testcase",
+    "itemId": "mmu219juxbbaeukumzq",
+    "action": "execute",
+    "changes": {
+      "status": "pass",
+      "executedBy": "测试员",
+      "executionRecordId": "mmu219kcrud8gbh81h"
+    },
+    "userId": "system",
+    "timestamp": "2026-03-17T03:30:25.068Z"
+  },
+  {
+    "id": "mmu219mlzo0juv4ccms",
+    "type": "testcase",
+    "itemId": "mmu219juxbbaeukumzq",
+    "action": "update",
+    "changes": {
+      "oldData": {
+        "id": "mmu219juxbbaeukumzq",
+        "tcId": "TEST-11",
+        "projectId": "mmslip4ss321w2qimp",
+        "prefix": "TEST",
+        "title": "登录功能测试",
+        "type": "功能测试",
+        "status": "pass",
+        "priority": "high",
+        "assignee": "张三",
+        "steps": "",
+        "expectedResult": "成功登录",
+        "headerId": null,
+        "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
+        "attachments": [],
+        "lastExecuted": "2026-03-17T03:30:25.068Z",
+        "columns": [
+          {
+            "id": "mmu219jurhyhn0fqwuf",
+            "name": "操作步骤",
+            "type": "text",
+            "value": ""
+          },
+          {
+            "id": "mmu219jupam4ldgwxd",
+            "name": "预期结果",
+            "type": "text",
+            "value": "成功登录"
+          }
+        ],
+        "createdAt": "2026-03-17T03:30:25.050Z",
+        "updatedAt": "2026-03-17T03:30:25.068Z",
+        "executionHistory": [
+          {
+            "id": "mmu219kcrud8gbh81h",
+            "testcaseId": "mmu219juxbbaeukumzq",
+            "status": "pass",
+            "result": "所有步骤执行成功，功能正常",
+            "executedBy": "测试员",
+            "duration": 15,
+            "notes": "首次执行通过",
+            "attachments": [],
+            "executedAt": "2026-03-17T03:30:25.068Z"
+          }
+        ]
+      },
+      "newData": {
+        "title": "登录功能测试（已更新）",
+        "status": "pass",
+        "priority": "urgent"
+      }
+    },
+    "userId": "system",
+    "timestamp": "2026-03-17T03:30:25.149Z"
+  },
+  {
+    "id": "mmu219n05zndx2m9c82",
+    "type": "testcase",
+    "itemId": "mmu219juxbbaeukumzq",
+    "action": "delete",
+    "changes": {
+      "deletedData": {
+        "id": "mmu219juxbbaeukumzq",
+        "tcId": "TEST-11",
+        "projectId": "mmslip4ss321w2qimp",
+        "prefix": "TEST",
+        "title": "登录功能测试（已更新）",
+        "type": "功能测试",
+        "status": "pass",
+        "priority": "urgent",
+        "assignee": "张三",
+        "steps": "",
+        "expectedResult": "成功登录",
+        "headerId": null,
+        "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
+        "attachments": [],
+        "lastExecuted": "2026-03-17T03:30:25.068Z",
+        "columns": [
+          {
+            "id": "mmu219jurhyhn0fqwuf",
+            "name": "操作步骤",
+            "type": "text",
+            "value": ""
+          },
+          {
+            "id": "mmu219jupam4ldgwxd",
+            "name": "预期结果",
+            "type": "text",
+            "value": "成功登录"
+          }
+        ],
+        "createdAt": "2026-03-17T03:30:25.050Z",
+        "updatedAt": "2026-03-17T03:30:25.149Z",
+        "executionHistory": [
+          {
+            "id": "mmu219kcrud8gbh81h",
+            "testcaseId": "mmu219juxbbaeukumzq",
+            "status": "pass",
+            "result": "所有步骤执行成功，功能正常",
+            "executedBy": "测试员",
+            "duration": 15,
+            "notes": "首次执行通过",
+            "attachments": [],
+            "executedAt": "2026-03-17T03:30:25.068Z"
+          }
+        ]
+      }
+    },
+    "userId": "system",
+    "timestamp": "2026-03-17T03:30:25.164Z"
   }
 ]
