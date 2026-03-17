@@ -846,6 +846,19 @@ async function handleApiRequest(req, res, fullUrl) {
             const { username, password, rememberMe = false } = body;
 
             if (!username || !password) {
+                // 记录失败的登录尝试
+                logAudit({
+                    username: username || 'anonymous',
+                    userRole: 'unknown',
+                    operationType: 'login',
+                    dataType: 'user',
+                    ipAddress: getClientIp(req),
+                    userAgent: req.headers['user-agent'] || 'unknown',
+                    method: 'POST',
+                    endpoint: '/api/auth/login',
+                    status: 'failed',
+                    details: '登录失败：用户名或密码为空'
+                });
                 return jsonRes(res, 400, { success: false, message: '用户名和密码不能为空' });
             }
 
@@ -853,11 +866,39 @@ async function handleApiRequest(req, res, fullUrl) {
 
             if (user) {
                 if (user.status !== 'active') {
+                    // 记录禁用账户登录尝试
+                    logAudit({
+                        username: username,
+                        userRole: user.role,
+                        operationType: 'login',
+                        dataType: 'user',
+                        ipAddress: getClientIp(req),
+                        userAgent: req.headers['user-agent'] || 'unknown',
+                        method: 'POST',
+                        endpoint: '/api/auth/login',
+                        status: 'failed',
+                        details: '登录失败：账户已被禁用'
+                    });
                     return jsonRes(res, 403, { success: false, message: '账户已被禁用' });
                 }
                 
                 // 创建 Session
                 const { token, expires } = createSession(user.id, rememberMe);
+                
+                // 记录成功的登录
+                logAudit({
+                    username: user.username,
+                    userRole: user.role,
+                    operationType: 'login',
+                    dataType: 'user',
+                    ipAddress: getClientIp(req),
+                    userAgent: req.headers['user-agent'] || 'unknown',
+                    method: 'POST',
+                    endpoint: '/api/auth/login',
+                    status: 'success',
+                    details: '登录成功',
+                    objectId: user.id
+                });
                 
                 const { password: _, ...userWithoutPassword } = user;
                 return jsonRes(res, 200, {
@@ -870,6 +911,19 @@ async function handleApiRequest(req, res, fullUrl) {
                     }
                 });
             } else {
+                // 记录失败的登录尝试
+                logAudit({
+                    username: username,
+                    userRole: 'unknown',
+                    operationType: 'login',
+                    dataType: 'user',
+                    ipAddress: getClientIp(req),
+                    userAgent: req.headers['user-agent'] || 'unknown',
+                    method: 'POST',
+                    endpoint: '/api/auth/login',
+                    status: 'failed',
+                    details: '登录失败：用户名或密码错误'
+                });
                 return jsonRes(res, 401, { success: false, message: '用户名或密码错误' });
             }
         }
@@ -877,7 +931,25 @@ async function handleApiRequest(req, res, fullUrl) {
         // POST /api/auth/logout - 用户登出
         if (url === '/api/auth/logout' && method === 'POST') {
             const token = getSessionFromHeaders(req);
+            const session = verifySession(token);
+            
             if (token) {
+                if (session) {
+                    const user = users.find(u => u.id === session.userId);
+                    // 记录登出操作
+                    logAudit({
+                        username: user ? user.username : 'unknown',
+                        userRole: user ? user.role : 'unknown',
+                        operationType: 'logout',
+                        dataType: 'user',
+                        ipAddress: getClientIp(req),
+                        userAgent: req.headers['user-agent'] || 'unknown',
+                        method: 'POST',
+                        endpoint: '/api/auth/logout',
+                        status: 'success',
+                        details: '登出成功'
+                    });
+                }
                 destroySession(token);
             }
             return jsonRes(res, 200, { success: true, message: '登出成功' });
@@ -1146,7 +1218,7 @@ async function handleApiRequest(req, res, fullUrl) {
             }
 
             const oldData = JSON.parse(JSON.stringify(requirements[reqIndex]));
-            const { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, columns, richContent } = body;
+            const { title, category, status, priority, assignee, description, acceptanceCriteria, headerId, columns, richContent, customFields } = body;
             
             // P0 字段
             if (title !== undefined) requirements[reqIndex].title = title;
@@ -1161,8 +1233,21 @@ async function handleApiRequest(req, res, fullUrl) {
             if (description !== undefined) requirements[reqIndex].description = description;
             if (acceptanceCriteria !== undefined) requirements[reqIndex].acceptanceCriteria = acceptanceCriteria;
             if (headerId !== undefined) requirements[reqIndex].headerId = headerId;
-            if (columns !== undefined) requirements[reqIndex].columns = columns;
             if (richContent !== undefined) requirements[reqIndex].richContent = richContent;
+            
+            // 处理自定义字段
+            if (customFields !== undefined || columns !== undefined) {
+                const existingColumns = columns || requirements[reqIndex].columns || [];
+                const { columns: finalColumns, errors } = processCustomFields('requirement', { customFields }, existingColumns);
+                
+                if (errors.length > 0) {
+                    return jsonRes(res, 400, { success: false, message: errors.join('; ') });
+                }
+                
+                requirements[reqIndex].columns = finalColumns;
+            } else if (columns !== undefined) {
+                requirements[reqIndex].columns = columns;
+            }
             
             requirements[reqIndex].updatedAt = new Date().toISOString();
 
@@ -1219,7 +1304,7 @@ async function handleApiRequest(req, res, fullUrl) {
         if (url === '/api/testcases' && method === 'POST') {
             const body = await parseBody(req);
             const { projectId, prefix, steps, expectedResult, headerId, savePrefix, richContent, 
-                    title, type, status, priority, assignee, columns } = body;
+                    title, type, status, priority, assignee, columns, customFields } = body;
 
             if (!projectId) {
                 return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
@@ -1227,6 +1312,17 @@ async function handleApiRequest(req, res, fullUrl) {
 
             const nextId = getNextId('testcase');
             const tcId = prefix ? `${prefix}-${nextId}` : `TC-${nextId}`;
+
+            // 处理自定义字段
+            const baseColumns = columns || [
+                { id: generateUniqueId(), name: '操作步骤', type: 'text', value: steps || '' },
+                { id: generateUniqueId(), name: '预期结果', type: 'text', value: expectedResult || '' }
+            ];
+            const { columns: finalColumns, errors } = processCustomFields('testcase', { customFields }, baseColumns);
+            
+            if (errors.length > 0) {
+                return jsonRes(res, 400, { success: false, message: errors.join('; ') });
+            }
 
             const newTestcase = {
                 id: generateUniqueId(),
@@ -1244,10 +1340,7 @@ async function handleApiRequest(req, res, fullUrl) {
                 richContent: richContent || null,
                 attachments: [],
                 lastExecuted: null,
-                columns: columns || [
-                    { id: generateUniqueId(), name: '操作步骤', type: 'text', value: steps || '' },
-                    { id: generateUniqueId(), name: '预期结果', type: 'text', value: expectedResult || '' }
-                ],
+                columns: finalColumns,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -1275,7 +1368,7 @@ async function handleApiRequest(req, res, fullUrl) {
 
             const oldData = JSON.parse(JSON.stringify(testcases[tcIndex]));
             const { steps, expectedResult, columns, title, type, status, priority, assignee, 
-                    richContent, headerId, lastExecuted } = body;
+                    richContent, headerId, lastExecuted, customFields } = body;
             if (title !== undefined) testcases[tcIndex].title = title;
             if (type !== undefined) testcases[tcIndex].type = type;
             if (status !== undefined) testcases[tcIndex].status = status;
@@ -1286,7 +1379,20 @@ async function handleApiRequest(req, res, fullUrl) {
             if (richContent !== undefined) testcases[tcIndex].richContent = richContent;
             if (headerId !== undefined) testcases[tcIndex].headerId = headerId;
             if (lastExecuted !== undefined) testcases[tcIndex].lastExecuted = lastExecuted;
-            if (columns !== undefined) testcases[tcIndex].columns = columns;
+            
+            // 处理自定义字段
+            if (customFields !== undefined || columns !== undefined) {
+                const existingColumns = columns || testcases[tcIndex].columns || [];
+                const { columns: finalColumns, errors } = processCustomFields('testcase', { customFields }, existingColumns);
+                
+                if (errors.length > 0) {
+                    return jsonRes(res, 400, { success: false, message: errors.join('; ') });
+                }
+                
+                testcases[tcIndex].columns = finalColumns;
+            } else if (columns !== undefined) {
+                testcases[tcIndex].columns = columns;
+            }
             testcases[tcIndex].updatedAt = new Date().toISOString();
 
             // 记录详细历史（带变更分析）
@@ -3919,6 +4025,17 @@ async function handleApiRequest(req, res, fullUrl) {
             
             saveData();
             return jsonRes(res, 200, { success: true, message: '排序更新成功' });
+        }
+        
+        // GET /api/custom-fields/for/:scope - 获取指定范围的字段（用于表单）
+        if (url.match(/^\/api\/custom-fields\/for\/(requirement|testcase)$/) && method === 'GET') {
+            const auth = requireAuth(req, res);
+            if (auth.error) return jsonRes(res, auth.error.code, auth.error);
+            
+            const scope = url.split('/').pop();
+            const fields = getCustomFieldsForScope(scope, true);
+            
+            return jsonRes(res, 200, { success: true, data: fields });
         }
 
         // ===== 导出模板管理 API =====

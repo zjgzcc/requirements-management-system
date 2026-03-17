@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作审计日志 - 需求管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card .label {
+            color: #718096;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            color: #2d3748;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .stat-card .trend {
+            color: #48bb78;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .filters {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .filters h3 {
+            color: #2d3748;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-item label {
+            color: #4a5568;
+            font-size: 13px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .filter-item input,
+        .filter-item select {
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .filter-item input:focus,
+        .filter-item select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .logs-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .logs-header h3 {
+            color: #2d3748;
+            font-size: 16px;
+        }
+
+        .logs-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f7fafc;
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 12px 16px;
+            font-size: 14px;
+            color: #2d3748;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tr:hover {
+            background: #f7fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-create {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-update {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .badge-delete {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .badge-read {
+            background: #e9d8fd;
+            color: #44337a;
+        }
+
+        .badge-login {
+            background: #fef5e7;
+            color: #744210;
+        }
+
+        .badge-logout {
+            background: #edf2f7;
+            color: #4a5568;
+        }
+
+        .badge-export {
+            background: #e6fffa;
+            color: #234e52;
+        }
+
+        .badge-import {
+            background: #faf5ff;
+            color: #553c9a;
+        }
+
+        .badge-permission {
+            background: #fff5f5;
+            color: #742a2a;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .pagination-info {
+            color: #718096;
+            font-size: 13px;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pagination-controls button {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .pagination-controls button:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .user-avatar {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h3 {
+            color: #2d3748;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #718096;
+        }
+
+        .modal-close:hover {
+            color: #2d3748;
+        }
+
+        .detail-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            width: 120px;
+            color: #718096;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .detail-value {
+            color: #2d3748;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #2d3748;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 操作审计日志</h1>
+            <p>记录和追踪系统中的所有用户操作，确保数据安全与合规</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="label">总操作数</div>
+                <div class="value" id="totalOps">-</div>
+                <div class="trend">今日：<span id="todayOps">-</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">活跃用户</div>
+                <div class="value" id="activeUsers">-</div>
+                <div class="trend">近 7 天</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">高频操作</div>
+                <div class="value" id="topOp">-</div>
+                <div class="trend" id="topOpCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">异常操作</div>
+                <div class="value" id="abnormalOps">-</div>
+                <div class="trend">需关注</div>
+            </div>
+        </div>
+
+        <!-- 筛选器 -->
+        <div class="filters">
+            <h3>筛选条件</h3>
+            <div class="filter-grid">
+                <div class="filter-item">
+                    <label>时间范围</label>
+                    <select id="timeRange">
+                        <option value="today">今天</option>
+                        <option value="week">最近 7 天</option>
+                        <option value="month">最近 30 天</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                </div>
+                <div class="filter-item" id="startDateContainer" style="display: none;">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="filter-item" id="endDateContainer" style="display: none;">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
+                </div>
+                <div class="filter-item">
+                    <label>用户</label>
+                    <select id="userFilter">
+                        <option value="">全部用户</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>操作类型</label>
+                    <select id="operationType">
+                        <option value="">全部操作</option>
+                        <option value="create">创建</option>
+                        <option value="update">更新</option>
+                        <option value="delete">删除</option>
+                        <option value="read">查询</option>
+                        <option value="login">登录</option>
+                        <option value="logout">登出</option>
+                        <option value="export">导出</option>
+                        <option value="import">导入</option>
+                        <option value="permission">权限变更</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>数据类型</label>
+                    <select id="dataType">
+                        <option value="">全部数据</option>
+                        <option value="user">用户</option>
+                        <option value="project">项目</option>
+                        <option value="requirement">需求</option>
+                        <option value="testcase">测试用例</option>
+                        <option value="defect">缺陷</option>
+                        <option value="task">任务</option>
+                        <option value="baseline">基线</option>
+                        <option value="trace">追踪关系</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="loadLogs()">🔍 查询</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">🔄 重置</button>
+                <button class="btn btn-success" onclick="exportLogs('csv')">📥 导出 CSV</button>
+                <button class="btn btn-success" onclick="exportLogs('excel')">📊 导出 Excel</button>
+                <button class="btn btn-secondary" onclick="exportReport()">📄 导出报告</button>
+            </div>
+        </div>
+
+        <!-- 日志列表 -->
+        <div class="logs-container">
+            <div class="logs-header">
+                <h3>审计日志列表</h3>
+                <div class="logs-actions">
+                    <button class="btn btn-secondary" onclick="toggleAutoRefresh()" id="autoRefreshBtn">⏱ 自动刷新：关</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="logsTable">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>用户</th>
+                            <th>操作类型</th>
+                            <th>数据类型</th>
+                            <th>操作对象</th>
+                            <th>IP 地址</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div class="pagination-info" id="paginationInfo">共 0 条记录</div>
+                <div class="pagination-controls">
+                    <button onclick="prevPage()" id="prevBtn">上一页</button>
+                    <button onclick="nextPage()" id="nextBtn">下一页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>操作详情</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const pageSize = 20;
+        let totalLogs = 0;
+        let autoRefreshInterval = null;
+        let logsData = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadLogs();
+            loadUsers();
+            
+            // 时间范围切换
+            document.getElementById('timeRange').addEventListener('change', function() {
+                const isCustom = this.value === 'custom';
+                document.getElementById('startDateContainer').style.display = isCustom ? 'flex' : 'none';
+                document.getElementById('endDateContainer').style.display = isCustom ? 'flex' : 'none';
+            });
+        });
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/audit/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('totalOps').textContent = stats.totalOperations || 0;
+                    document.getElementById('todayOps').textContent = stats.todayOperations || 0;
+                    document.getElementById('activeUsers').textContent = stats.activeUsers || 0;
+                    document.getElementById('topOp').textContent = stats.topOperation || '-';
+                    document.getElementById('topOpCount').textContent = stats.topOperationCount ? `${stats.topOperationCount} 次` : '-';
+                    document.getElementById('abnormalOps').textContent = stats.abnormalOperations || 0;
+                }
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        // 加载用户列表
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const select = document.getElementById('userFilter');
+                    result.data.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = user.username;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+            }
+        }
+
+        // 加载日志
+        async function loadLogs() {
+            const tbody = document.getElementById('logsBody');
+            tbody.innerHTML = '<tr><td colspan="8" class="loading"><div class="spinner"></div>加载中...</td></tr>';
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                pageSize: pageSize
+            });
+
+            // 时间范围
+            const timeRange = document.getElementById('timeRange').value;
+            if (timeRange === 'custom') {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+            } else {
+                params.append('timeRange', timeRange);
+            }
+
+            // 其他筛选条件
+            const user = document.getElementById('userFilter').value;
+            const operationType = document.getElementById('operationType').value;
+            const dataType = document.getElementById('dataType').value;
+
+            if (user) params.append('user', user);
+            if (operationType) params.append('operationType', operationType);
+            if (dataType) params.append('dataType', dataType);
+
+            try {
+                const response = await fetch(`/api/audit/logs?${params}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    logsData = result.data.logs || [];
+                    totalLogs = result.data.total || 0;
+                    
+                    if (logsData.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="8" class="empty-state">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p>暂无审计日志</p>
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        tbody.innerHTML = logsData.map(log => `
+                            <tr>
+                                <td>${formatDate(log.timestamp)}</td>
+                                <td>
+                                    <div class="user-avatar">
+                                        <div class="avatar">${getInitials(log.username)}</div>
+                                        ${log.username}
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-${log.operationType}">${getOperationTypeName(log.operationType)}</span></td>
+                                <td>${getDataTypeName(log.dataType)}</td>
+                                <td>${log.objectName || '-'}</td>
+                                <td>${log.ipAddress || '-'}</td>
+                                <td>${log.status === 'success' ? '✅ 成功' : '❌ 失败'}</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="showDetail('${log.id}')">详情</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                    
+                    updatePagination();
+                }
+            } catch (error) {
+                console.error('加载日志失败:', error);
+                tbody.innerHTML = '<tr><td colspan="8" class="loading">加载失败</td></tr>';
+            }
+        }
+
+        // 更新分页
+        function updatePagination() {
+            const totalPages = Math.ceil(totalLogs / pageSize);
+            document.getElementById('paginationInfo').textContent = `共 ${totalLogs} 条记录，第 ${currentPage}/${totalPages} 页`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        // 上一页
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadLogs();
+            }
+        }
+
+        // 下一页
+        function nextPage() {
+            const totalPages = Math.ceil(totalLogs / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadLogs();
+            }
+        }
+
+        // 重置筛选
+        function resetFilters() {
+            document.getElementById('timeRange').value = 'today';
+            document.getElementById('startDateContainer').style.display = 'none';
+            document.getElementById('endDateContainer').style.display = 'none';
+            document.getElementById('userFilter').value = '';
+            document.getElementById('operationType').value = '';
+            document.getElementById('dataType').value = '';
+            currentPage = 1;
+            loadLogs();
+        }
+
+        // 显示详情
+        async function showDetail(logId) {
+            const log = logsData.find(l => l.id === logId);
+            if (!log) return;
+
+            const content = document.getElementById('detailContent');
+            content.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">操作 ID</div>
+                    <div class="detail-value">${log.id}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作时间</div>
+                    <div class="detail-value">${formatDate(log.timestamp)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作用户</div>
+                    <div class="detail-value">${log.username} (${log.userRole || '-'})</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作类型</div>
+                    <div class="detail-value"><span class="badge badge-${log.operationType}">${getOperationTypeName(log.operationType)}</span></div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">数据类型</div>
+                    <div class="detail-value">${getDataTypeName(log.dataType)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作对象</div>
+                    <div class="detail-value">${log.objectName || '-'} (ID: ${log.objectId || '-'})</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">IP 地址</div>
+                    <div class="detail-value">${log.ipAddress || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">User Agent</div>
+                    <div class="detail-value">${log.userAgent || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作状态</div>
+                    <div class="detail-value">${log.status === 'success' ? '✅ 成功' : '❌ 失败'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">请求方法</div>
+                    <div class="detail-value">${log.method || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">请求路径</div>
+                    <div class="detail-value">${log.endpoint || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">操作详情</div>
+                    <div class="detail-value">${log.details || '无'}</div>
+                </div>
+            `;
+
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // 导出日志
+        async function exportLogs(format) {
+            showToast('正在生成导出文件...');
+            
+            const params = new URLSearchParams({ format });
+            
+            // 添加筛选条件
+            const timeRange = document.getElementById('timeRange').value;
+            if (timeRange === 'custom') {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+            } else {
+                params.append('timeRange', timeRange);
+            }
+
+            const user = document.getElementById('userFilter').value;
+            const operationType = document.getElementById('operationType').value;
+            const dataType = document.getElementById('dataType').value;
+
+            if (user) params.append('user', user);
+            if (operationType) params.append('operationType', operationType);
+            if (dataType) params.append('dataType', dataType);
+
+            try {
+                const response = await fetch(`/api/audit/export?${params}`);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast('导出成功！');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败，请重试');
+            }
+        }
+
+        // 导出报告
+        async function exportReport() {
+            showToast('正在生成审计报告...');
+            
+            try {
+                const response = await fetch('/api/audit/report');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `audit-report-${new Date().toISOString().split('T')[0]}.pdf`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast('报告导出成功！');
+            } catch (error) {
+                console.error('导出报告失败:', error);
+                showToast('报告导出失败，请重试');
+            }
+        }
+
+        // 切换自动刷新
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = '⏱ 自动刷新：关';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            } else {
+                autoRefreshInterval = setInterval(() => {
+                    loadStats();
+                    loadLogs();
+                }, 30000); // 30 秒刷新一次
+                btn.textContent = '⏱ 自动刷新：开';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+            }
+        }
+
+        // 工具函数
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        function getInitials(username) {
+            return username.charAt(0).toUpperCase();
+        }
+
+        function getOperationTypeName(type) {
+            const names = {
+                create: '创建',
+                update: '更新',
+                delete: '删除',
+                read: '查询',
+                login: '登录',
+                logout: '登出',
+                export: '导出',
+                import: '导入',
+                permission: '权限变更'
+            };
+            return names[type] || type;
+        }
+
+        function getDataTypeName(type) {
+            const names = {
+                user: '用户',
+                project: '项目',
+                requirement: '需求',
+                testcase: '测试用例',
+                defect: '缺陷',
+                task: '任务',
+                baseline: '基线',
+                trace: '追踪关系'
+            };
+            return names[type] || type;
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // 点击弹窗外部关闭
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
