@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>缺陷管理 - 需求管理系统</title>
+    <!-- Quill 编辑器样式 -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .current-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #e1e1e1;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #667eea;
+            border: 1px solid #667eea;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .main-container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 15px;
+            color: #666;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: #f5f5f5;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .project-select {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .project-select select {
+            padding: 8px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .batch-actions {
+            display: none;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .batch-actions.active {
+            display: flex;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .selected-count {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* 严重程度徽章 */
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .severity-critical { background: #fee2e2; color: #991b1b; }
+        .severity-major { background: #ffedd5; color: #9a3412; }
+        .severity-normal { background: #fef3c7; color: #92400e; }
+        .severity-minor { background: #dbeafe; color: #1e40af; }
+        .severity-trivial { background: #f3f4f6; color: #374151; }
+
+        /* 状态徽章 */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-new { background: #dbeafe; color: #1e40af; }
+        .status-confirmed { background: #e0e7ff; color: #3730a3; }
+        .status-assigned { background: #fef3c7; color: #92400e; }
+        .status-in_progress { background: #e0f2fe; color: #075985; }
+        .status-resolved { background: #d1fae5; color: #065f46; }
+        .status-verified { background: #a7f3d0; color: #064e3b; }
+        .status-closed { background: #d1d5db; color: #1f2937; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+
+        /* 优先级徽章 */
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .priority-urgent { background: #fee2e2; color: #991b1b; }
+        .priority-high { background: #ffedd5; color: #9a3412; }
+        .priority-medium { background: #fef3c7; color: #92400e; }
+        .priority-low { background: #d1fae5; color: #065f46; }
+
+        /* 看板视图 */
+        .board-container {
+            display: none;
+            gap: 20px;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .board-container.active {
+            display: flex;
+        }
+
+        .board-column {
+            min-width: 300px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .board-column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1e1e1;
+        }
+
+        .board-column-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .board-column-count {
+            background: #e1e1e1;
+            color: #666;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .board-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .board-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .board-card:active {
+            cursor: grabbing;
+        }
+
+        .board-card-id {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .board-card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .board-card-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 20px 30px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .editor-container {
+            min-height: 200px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .editor-container .ql-toolbar {
+            border: none !important;
+            border-bottom: 1px solid #e1e1e1 !important;
+            background: #f8f9fa;
+        }
+
+        .editor-container .ql-container {
+            border: none !important;
+        }
+
+        .steps-list {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .add-step-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border: 1px dashed #e1e1e1;
+            border-radius: 6px;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .add-step-btn:hover {
+            background: #e8e8e8;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .attachment-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .attachment-item .remove-btn {
+            color: #ef4444;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .comments-section {
+            margin-top: 30px;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 20px;
+        }
+
+        .comments-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .comment-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .comment-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .comment-content {
+            flex: 1;
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .comment-author {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .comment-time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .comment-text {
+            color: #333;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .add-comment {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .add-comment textarea {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .history-section {
+            margin-top: 30px;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 20px;
+        }
+
+        .history-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .history-list {
+            list-style: none;
+        }
+
+        .history-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .history-time {
+            color: #999;
+            font-size: 12px;
+            min-width: 150px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: #10b981;
+        }
+
+        .toast.error {
+            background: #ef4444;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .detail-split {
+            display: flex;
+            gap: 20px;
+        }
+
+        .detail-left {
+            flex: 1;
+            min-width: 400px;
+        }
+
+        .detail-right {
+            flex: 1;
+            min-width: 400px;
+        }
+
+        .field-group {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 15px;
+        }
+
+        .field-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .field-value {
+            font-size: 14px;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .detail-split {
+                flex-direction: column;
+            }
+            .detail-left, .detail-right {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🐛</div>
+            <h1>缺陷管理系统</h1>
+        </div>
+        <div class="user-menu">
+            <div class="current-user">
+                <div class="user-avatar" id="currentUserAvatar">A</div>
+                <span id="currentUserName">Admin</span>
+            </div>
+            <button class="btn-secondary" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <div class="content-card">
+            <!-- 标签页 -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('list')">缺陷列表</button>
+                <button class="tab" onclick="switchTab('board')">看板视图</button>
+                <button class="tab" onclick="switchTab('stats')">统计分析</button>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="toolbar" id="listToolbar">
+                <div class="project-select">
+                    <label>项目：</label>
+                    <select id="projectSelect" onchange="loadDefects()">
+                        <option value="">全部项目</option>
+                    </select>
+                </div>
+                <div class="action-buttons">
+                    <div class="filter-group">
+                        <select id="filterStatus" onchange="loadDefects()">
+                            <option value="">全部状态</option>
+                            <option value="new">新建</option>
+                            <option value="confirmed">已确认</option>
+                            <option value="assigned">已分配</option>
+                            <option value="in_progress">修复中</option>
+                            <option value="resolved">已修复</option>
+                            <option value="verified">已验证</option>
+                            <option value="closed">已关闭</option>
+                            <option value="rejected">已拒绝</option>
+                        </select>
+                        <select id="filterSeverity" onchange="loadDefects()">
+                            <option value="">全部严重程度</option>
+                            <option value="critical">致命</option>
+                            <option value="major">严重</option>
+                            <option value="normal">一般</option>
+                            <option value="minor">轻微</option>
+                            <option value="trivial">建议</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="showCreateModal()">+ 新建缺陷</button>
+                </div>
+            </div>
+
+            <!-- 批量操作 -->
+            <div class="batch-actions" id="batchActions">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    <span>已选择 <span class="selected-count" id="selectedCount">0</span> 个缺陷</span>
+                </div>
+                <button class="btn-secondary btn-sm" onclick="batchAssign()">批量分配</button>
+                <button class="btn-secondary btn-sm" onclick="batchClose()">批量关闭</button>
+                <button class="btn-secondary btn-sm" onclick="cancelBatch()">取消</button>
+            </div>
+
+            <!-- 缺陷列表 -->
+            <div class="table-container" id="listView">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="40"><input type="checkbox" id="headerCheckbox" onchange="toggleSelectAll()"></th>
+                            <th width="100">缺陷 ID</th>
+                            <th>标题</th>
+                            <th width="100">严重程度</th>
+                            <th width="80">优先级</th>
+                            <th width="100">状态</th>
+                            <th width="100">负责人</th>
+                            <th width="150">创建时间</th>
+                            <th width="120">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="defectsTableBody">
+                        <tr>
+                            <td colspan="9" class="empty-state">
+                                <div class="empty-state-icon">📋</div>
+                                <p>加载中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 看板视图 -->
+            <div class="board-container" id="boardView">
+                <!-- 动态生成 -->
+            </div>
+
+            <!-- 统计视图 -->
+            <div class="board-container" id="statsView">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建/编辑缺陷模态框 -->
+    <div class="modal-overlay" id="defectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">新建缺陷</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="defectId">
+                
+                <div class="form-group">
+                    <label>缺陷标题 *</label>
+                    <input type="text" id="defectTitle" placeholder="请输入缺陷标题">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>项目 *</label>
+                        <select id="defectProject">
+                            <option value="">请选择项目</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>缺陷类型</label>
+                        <select id="defectType">
+                            <option value="function">功能缺陷</option>
+                            <option value="ui">界面问题</option>
+                            <option value="performance">性能问题</option>
+                            <option value="security">安全问题</option>
+                            <option value="compatibility">兼容性问题</option>
+                            <option value="data">数据问题</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>严重程度</label>
+                        <select id="defectSeverity">
+                            <option value="critical">致命</option>
+                            <option value="major">严重</option>
+                            <option value="normal" selected>一般</option>
+                            <option value="minor">轻微</option>
+                            <option value="trivial">建议</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>优先级</label>
+                        <select id="defectPriority">
+                            <option value="urgent">紧急</option>
+                            <option value="high">高</option>
+                            <option value="medium" selected>中</option>
+                            <option value="low">低</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>指派给</label>
+                        <select id="defectAssignee">
+                            <option value="">未分配</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>验证人</label>
+                        <select id="defectVerifier">
+                            <option value="">未指定</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>缺陷描述</label>
+                    <div id="defectEditor" class="editor-container"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>复现步骤</label>
+                    <div id="stepsContainer">
+                        <ul class="steps-list" id="stepsList"></ul>
+                    </div>
+                    <button class="add-step-btn" onclick="addStep()">+ 添加步骤</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>预期结果</label>
+                        <textarea id="expectedResult" placeholder="请输入预期结果"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>实际结果</label>
+                        <textarea id="actualResult" placeholder="请输入实际结果"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>环境信息</label>
+                    <textarea id="environment" placeholder="操作系统、浏览器、设备型号等"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>关联需求</label>
+                        <select id="relatedRequirement">
+                            <option value="">无</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>关联用例</label>
+                        <select id="relatedTestcase">
+                            <option value="">无</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>附件</label>
+                    <input type="file" id="attachmentInput" multiple onchange="handleAttachmentSelect(event)">
+                    <div class="attachment-list" id="attachmentList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn-primary" onclick="saveDefect()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缺陷详情模态框 -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h2 id="detailTitle">缺陷详情</h2>
+                <button class="close-btn" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-split">
+                    <div class="detail-left">
+                        <div class="field-group">
+                            <div class="field-label">缺陷 ID</div>
+                            <div class="field-value" id="detailDefectId">DEF-001</div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">标题</div>
+                            <div class="field-value" id="detailTitleValue">缺陷标题</div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">状态</div>
+                            <div class="field-value" id="detailStatus"></div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">严重程度</div>
+                            <div class="field-value" id="detailSeverity"></div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">优先级</div>
+                            <div class="field-value" id="detailPriority"></div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">负责人</div>
+                            <div class="field-value" id="detailAssignee"></div>
+                        </div>
+                    </div>
+                    <div class="detail-right">
+                        <div class="field-group">
+                            <div class="field-label">报告人</div>
+                            <div class="field-value" id="detailReporter"></div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">创建时间</div>
+                            <div class="field-value" id="detailCreatedAt"></div>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">更新时间</div>
+                            <div class="field-value" id="detailUpdatedAt"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">描述</div>
+                    <div class="field-value" id="detailDescription"></div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">复现步骤</div>
+                    <div class="field-value" id="detailSteps"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field-group">
+                        <div class="field-label">预期结果</div>
+                        <div class="field-value" id="detailExpectedResult"></div>
+                    </div>
+                    <div class="field-group">
+                        <div class="field-label">实际结果</div>
+                        <div class="field-value" id="detailActualResult"></div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">环境信息</div>
+                    <div class="field-value" id="detailEnvironment"></div>
+                </div>
+
+                <!-- 评论区 -->
+                <div class="comments-section">
+                    <div class="comments-title">评论</div>
+                    <div id="commentsList"></div>
+                    <div class="add-comment">
+                        <textarea id="commentInput" placeholder="添加评论..."></textarea>
+                        <button class="btn-primary" onclick="addComment()">评论</button>
+                    </div>
+                </div>
+
+                <!-- 历史记录 -->
+                <div class="history-section">
+                    <div class="history-title">变更历史</div>
+                    <ul class="history-list" id="historyList"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDetailModal()">关闭</button>
+                <button class="btn-primary" onclick="editCurrentDefect()">编辑</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Quill 编辑器 -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        // 全局变量
+        let defects = [];
+        let projects = [];
+        let users = [];
+        let requirements = [];
+        let testcases = [];
+        let selectedDefects = new Set();
+        let currentDefect = null;
+        let quill = null;
+        let steps = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadProjects();
+            await loadUsers();
+            await loadDefects();
+            initQuill();
+        });
+
+        // 检查登录状态
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                document.getElementById('currentUserName').textContent = data.user.username;
+                document.getElementById('currentUserAvatar').textContent = data.user.username[0].toUpperCase();
+            } catch (e) {
+                window.location.href = 'login.html';
+            }
+        }
+
+        // 登出
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+        }
+
+        // 加载项目列表
+        async function loadProjects() {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/projects', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                projects = data.data;
+                const projectSelect = document.getElementById('projectSelect');
+                const defectProject = document.getElementById('defectProject');
+                
+                projects.forEach(p => {
+                    projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                    defectProject.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+            }
+        }
+
+        // 加载用户列表
+        async function loadUsers() {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/users', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                users = data.data;
+                const assigneeSelect = document.getElementById('defectAssignee');
+                const verifierSelect = document.getElementById('defectVerifier');
+                
+                users.forEach(u => {
+                    const option = `<option value="${u.id}">${u.username}</option>`;
+                    assigneeSelect.innerHTML += option;
+                    verifierSelect.innerHTML += option;
+                });
+            }
+        }
+
+        // 加载缺陷列表
+        async function loadDefects() {
+            const token = localStorage.getItem('token');
+            const projectId = document.getElementById('projectSelect').value;
+            const status = document.getElementById('filterStatus').value;
+            const severity = document.getElementById('filterSeverity').value;
+
+            let url = '/api/defects?';
+            if (projectId) url += `projectId=${projectId}&`;
+            if (status) url += `status=${status}&`;
+            if (severity) url += `severity=${severity}&`;
+
+            const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                defects = data.data;
+                renderDefectsTable();
+                if (document.getElementById('boardView').classList.contains('active')) {
+                    renderBoard();
+                }
+            }
+        }
+
+        // 渲染缺陷表格
+        function renderDefectsTable() {
+            const tbody = document.getElementById('defectsTableBody');
+            
+            if (defects.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <p>暂无缺陷数据</p>
+                            <button class="btn-primary" onclick="showCreateModal()" style="margin-top: 20px;">+ 新建缺陷</button>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = defects.map(d => `
+                <tr>
+                    <td><input type="checkbox" class="defect-checkbox" value="${d.id}" onchange="updateSelectedCount()"></td>
+                    <td><span style="font-family: monospace; color: #667eea;">${d.defectId}</span></td>
+                    <td>${escapeHtml(d.title)}</td>
+                    <td><span class="severity-badge severity-${d.severity}">${getSeverityText(d.severity)}</span></td>
+                    <td><span class="priority-badge priority-${d.priority}">${getPriorityText(d.priority)}</span></td>
+                    <td><span class="status-badge status-${d.status}">${getStatusText(d.status)}</span></td>
+                    <td>${d.assignee?.name || '-'}</td>
+                    <td style="color: #999; font-size: 13px;">${formatDate(d.createdAt)}</td>
+                    <td>
+                        <button class="btn-outline btn-sm" onclick="viewDefect('${d.id}')">查看</button>
+                        <button class="btn-secondary btn-sm" onclick="deleteDefect('${d.id}')" style="margin-left: 5px;">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 渲染看板
+        function renderBoard() {
+            const boardView = document.getElementById('boardView');
+            const columns = [
+                { key: 'new', title: '新建', class: 'status-new' },
+                { key: 'confirmed', title: '已确认', class: 'status-confirmed' },
+                { key: 'assigned', title: '已分配', class: 'status-assigned' },
+                { key: 'in_progress', title: '修复中', class: 'status-in_progress' },
+                { key: 'resolved', title: '已修复', class: 'status-resolved' },
+                { key: 'verified', title: '已验证', class: 'status-verified' },
+                { key: 'closed', title: '已关闭', class: 'status-closed' },
+                { key: 'rejected', title: '已拒绝', class: 'status-rejected' }
+            ];
+
+            boardView.innerHTML = columns.map(col => {
+                const columnDefects = defects.filter(d => d.status === col.key);
+                return `
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span class="board-column-title">${col.title}</span>
+                            <span class="board-column-count">${columnDefects.length}</span>
+                        </div>
+                        ${columnDefects.map(d => `
+                            <div class="board-card" draggable="true" ondragstart="handleDragStart(event, '${d.id}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${col.key}')">
+                                <div class="board-card-id">${d.defectId}</div>
+                                <div class="board-card-title">${escapeHtml(d.title)}</div>
+                                <div class="board-card-meta">
+                                    <span class="severity-badge severity-${d.severity}">${getSeverityText(d.severity)}</span>
+                                    ${d.assignee ? `<span style="font-size: 12px; color: #666;">👤 ${d.assignee.name}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 切换标签页
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('listToolbar').style.display = tab === 'list' ? 'flex' : 'none';
+            document.getElementById('listView').style.display = tab === 'list' ? 'block' : 'none';
+            document.getElementById('boardView').classList.toggle('active', tab === 'board');
+            
+            const statsView = document.getElementById('statsView');
+            statsView.classList.toggle('active', tab === 'stats');
+            
+            if (tab === 'board') {
+                renderBoard();
+            } else if (tab === 'stats') {
+                loadStats();
+            }
+        }
+
+        // 加载统计
+        async function loadStats() {
+            const token = localStorage.getItem('token');
+            const projectId = document.getElementById('projectSelect').value;
+            const url = `/api/defects/stats${projectId ? '?projectId=' + projectId : ''}`;
+            
+            const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const stats = data.data;
+                const statsView = document.getElementById('statsView');
+                statsView.innerHTML = `
+                    <div style="width: 100%;">
+                        <div class="stats-container">
+                            <div class="stat-card">
+                                <div class="stat-value">${stats.total}</div>
+                                <div class="stat-label">缺陷总数</div>
+                            </div>
+                            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                <div class="stat-value">${stats.byStatus['new'] || 0}</div>
+                                <div class="stat-label">新建</div>
+                            </div>
+                            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                <div class="stat-value">${stats.byStatus['in_progress'] || 0}</div>
+                                <div class="stat-label">修复中</div>
+                            </div>
+                            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                                <div class="stat-value">${stats.byStatus['closed'] || 0}</div>
+                                <div class="stat-label">已关闭</div>
+                            </div>
+                        </div>
+                        <div class="content-card" style="margin-top: 20px;">
+                            <h3 style="margin-bottom: 20px;">按严重程度统计</h3>
+                            ${renderStatBar(stats.bySeverity, getSeverityText)}
+                        </div>
+                        <div class="content-card" style="margin-top: 20px;">
+                            <h3 style="margin-bottom: 20px;">按状态统计</h3>
+                            ${renderStatBar(stats.byStatus, getStatusText)}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderStatBar(data, labelFn) {
+            const total = Object.values(data).reduce((a, b) => a + b, 0);
+            if (total === 0) return '<p style="color: #999;">暂无数据</p>';
+            
+            return Object.entries(data).map(([key, value]) => `
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>${labelFn(key)}</span>
+                        <span>${value}</span>
+                    </div>
+                    <div style="background: #f0f0f0; border-radius: 4px; height: 20px; overflow: hidden;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: ${(value / total) * 100}%; height: 100%;"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 显示创建模态框
+        function showCreateModal() {
+            document.getElementById('modalTitle').textContent = '新建缺陷';
+            document.getElementById('defectId').value = '';
+            document.getElementById('defectTitle').value = '';
+            document.getElementById('defectProject').value = '';
+            document.getElementById('defectType').value = 'function';
+            document.getElementById('defectSeverity').value = 'normal';
+            document.getElementById('defectPriority').value = 'medium';
+            document.getElementById('defectAssignee').value = '';
+            document.getElementById('defectVerifier').value = '';
+            if (quill) quill.setContents([]);
+            steps = [];
+            renderSteps();
+            document.getElementById('expectedResult').value = '';
+            document.getElementById('actualResult').value = '';
+            document.getElementById('environment').value = '';
+            document.getElementById('relatedRequirement').value = '';
+            document.getElementById('relatedTestcase').value = '';
+            document.getElementById('attachmentList').innerHTML = '';
+            document.getElementById('defectModal').classList.add('active');
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('defectModal').classList.remove('active');
+        }
+
+        // 初始化 Quill 编辑器
+        function initQuill() {
+            quill = new Quill('#defectEditor', {
+                theme: 'snow',
+                placeholder: '请输入缺陷描述...',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                }
+            });
+        }
+
+        // 添加步骤
+        function addStep() {
+            steps.push('');
+            renderSteps();
+        }
+
+        // 渲染步骤
+        function renderSteps() {
+            const list = document.getElementById('stepsList');
+            list.innerHTML = steps.map((step, index) => `
+                <li class="step-item">
+                    <span class="step-number">${index + 1}</span>
+                    <input type="text" class="step-input" value="${escapeHtml(step)}" onchange="updateStep(${index}, this.value)" placeholder="输入步骤 ${index + 1}">
+                    <button class="btn-danger btn-sm" onclick="removeStep(${index})" style="padding: 4px 8px;">×</button>
+                </li>
+            `).join('');
+        }
+
+        function updateStep(index, value) {
+            steps[index] = value;
+        }
+
+        function removeStep(index) {
+            steps.splice(index, 1);
+            renderSteps();
+        }
+
+        // 处理附件选择
+        function handleAttachmentSelect(event) {
+            const files = event.target.files;
+            const list = document.getElementById('attachmentList');
+            
+            for (let file of files) {
+                const item = document.createElement('div');
+                item.className = 'attachment-item';
+                item.innerHTML = `
+                    <span>📎 ${file.name}</span>
+                    <span class="remove-btn" onclick="this.parentElement.remove()">×</span>
+                `;
+                list.appendChild(item);
+            }
+        }
+
+        // 保存缺陷
+        async function saveDefect() {
+            const token = localStorage.getItem('token');
+            const defectId = document.getElementById('defectId').value;
+            const title = document.getElementById('defectTitle').value;
+            const projectId = document.getElementById('defectProject').value;
+
+            if (!title || !projectId) {
+                showToast('请填写必填项', 'error');
+                return;
+            }
+
+            const defectData = {
+                title,
+                projectId,
+                type: document.getElementById('defectType').value,
+                severity: document.getElementById('defectSeverity').value,
+                priority: document.getElementById('defectPriority').value,
+                assignee: document.getElementById('defectAssignee').value ? { id: document.getElementById('defectAssignee').value, name: users.find(u => u.id === document.getElementById('defectAssignee').value)?.username } : null,
+                verifier: document.getElementById('defectVerifier').value ? { id: document.getElementById('defectVerifier').value, name: users.find(u => u.id === document.getElementById('defectVerifier').value)?.username } : null,
+                description: quill ? quill.root.innerHTML : '',
+                steps,
+                expectedResult: document.getElementById('expectedResult').value,
+                actualResult: document.getElementById('actualResult').value,
+                environment: document.getElementById('environment').value,
+                relatedRequirement: document.getElementById('relatedRequirement').value || null,
+                relatedTestcase: document.getElementById('relatedTestcase').value || null
+            };
+
+            try {
+                const url = defectId ? `/api/defects/${defectId}` : '/api/defects';
+                const method = defectId ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(defectData)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(defectId ? '缺陷更新成功' : '缺陷创建成功', 'success');
+                    closeModal();
+                    loadDefects();
+                } else {
+                    showToast(data.message || '操作失败', 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+
+        // 查看缺陷详情
+        async function viewDefect(id) {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/defects/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                currentDefect = data.data;
+                document.getElementById('detailDefectId').textContent = currentDefect.defectId;
+                document.getElementById('detailTitleValue').textContent = currentDefect.title;
+                document.getElementById('detailStatus').innerHTML = `<span class="status-badge status-${currentDefect.status}">${getStatusText(currentDefect.status)}</span>`;
+                document.getElementById('detailSeverity').innerHTML = `<span class="severity-badge severity-${currentDefect.severity}">${getSeverityText(currentDefect.severity)}</span>`;
+                document.getElementById('detailPriority').innerHTML = `<span class="priority-badge priority-${currentDefect.priority}">${getPriorityText(currentDefect.priority)}</span>`;
+                document.getElementById('detailAssignee').textContent = currentDefect.assignee?.name || '未分配';
+                document.getElementById('detailReporter').textContent = currentDefect.reporter?.name || 'System';
+                document.getElementById('detailCreatedAt').textContent = formatDate(currentDefect.createdAt);
+                document.getElementById('detailUpdatedAt').textContent = formatDate(currentDefect.updatedAt);
+                document.getElementById('detailDescription').innerHTML = currentDefect.description || '无';
+                
+                // 复现步骤
+                if (currentDefect.steps && currentDefect.steps.length > 0) {
+                    document.getElementById('detailSteps').innerHTML = '<ol>' + currentDefect.steps.map(s => `<li>${escapeHtml(s)}</li>`).join('') + '</ol>';
+                } else {
+                    document.getElementById('detailSteps').textContent = '无';
+                }
+                
+                document.getElementById('detailExpectedResult').textContent = currentDefect.expectedResult || '无';
+                document.getElementById('detailActualResult').textContent = currentDefect.actualResult || '无';
+                document.getElementById('detailEnvironment').textContent = currentDefect.environment || '无';
+
+                // 加载评论
+                loadComments(id);
+
+                // 加载历史
+                renderHistory(currentDefect.history || []);
+
+                document.getElementById('detailModal').classList.add('active');
+            }
+        }
+
+        // 加载评论
+        async function loadComments(defectId) {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/defects/${defectId}/comments`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const list = document.getElementById('commentsList');
+                if (data.data.length === 0) {
+                    list.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无评论</p>';
+                } else {
+                    list.innerHTML = data.data.map(c => `
+                        <div class="comment-item">
+                            <div class="comment-avatar">${(c.userName || 'U')[0].toUpperCase()}</div>
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <span class="comment-author">${escapeHtml(c.userName || 'Unknown')}</span>
+                                    <span class="comment-time">${formatDate(c.createdAt)}</span>
+                                </div>
+                                <div class="comment-text">${escapeHtml(c.content)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        // 添加评论
+        async function addComment() {
+            const token = localStorage.getItem('token');
+            const content = document.getElementById('commentInput').value;
+            
+            if (!content.trim()) {
+                showToast('请输入评论内容', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/defects/${currentDefect.id}/comments`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('commentInput').value = '';
+                    loadComments(currentDefect.id);
+                    showToast('评论添加成功', 'success');
+                } else {
+                    showToast(data.message || '操作失败', 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+
+        // 渲染历史
+        function renderHistory(history) {
+            const list = document.getElementById('historyList');
+            if (history.length === 0) {
+                list.innerHTML = '<li class="history-item"><span style="color: #999;">暂无变更记录</span></li>';
+                return;
+            }
+
+            list.innerHTML = history.slice().reverse().map(h => `
+                <li class="history-item">
+                    <span class="history-time">${formatDate(h.timestamp)}</span>
+                    <span>${h.userName || 'Unknown'} ${getHistoryActionText(h.action)} ${h.field ? '"' + h.field + '"' : ''} ${h.oldValue && h.newValue ? `从 "${h.oldValue}" 到 "${h.newValue}"` : ''}</span>
+                </li>
+            `).join('');
+        }
+
+        function getHistoryActionText(action) {
+            const map = {
+                'created': '创建了缺陷',
+                'update': '更新了',
+                'transition': '将状态从'
+            };
+            return map[action] || action;
+        }
+
+        // 关闭详情模态框
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+            currentDefect = null;
+        }
+
+        // 编辑当前缺陷
+        function editCurrentDefect() {
+            if (!currentDefect) return;
+            
+            document.getElementById('modalTitle').textContent = '编辑缺陷';
+            document.getElementById('defectId').value = currentDefect.id;
+            document.getElementById('defectTitle').value = currentDefect.title;
+            document.getElementById('defectProject').value = currentDefect.projectId;
+            document.getElementById('defectType').value = currentDefect.type;
+            document.getElementById('defectSeverity').value = currentDefect.severity;
+            document.getElementById('defectPriority').value = currentDefect.priority;
+            document.getElementById('defectAssignee').value = currentDefect.assignee?.id || '';
+            document.getElementById('defectVerifier').value = currentDefect.verifier?.id || '';
+            if (quill && currentDefect.description) quill.root.innerHTML = currentDefect.description;
+            steps = currentDefect.steps || [];
+            renderSteps();
+            document.getElementById('expectedResult').value = currentDefect.expectedResult || '';
+            document.getElementById('actualResult').value = currentDefect.actualResult || '';
+            document.getElementById('environment').value = currentDefect.environment || '';
+            document.getElementById('relatedRequirement').value = currentDefect.relatedRequirement || '';
+            document.getElementById('relatedTestcase').value = currentDefect.relatedTestcase || '';
+            
+            closeDetailModal();
+            document.getElementById('defectModal').classList.add('active');
+        }
+
+        // 删除缺陷
+        async function deleteDefect(id) {
+            if (!confirm('确定要删除这个缺陷吗？')) return;
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/defects/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('缺陷已删除', 'success');
+                    loadDefects();
+                } else {
+                    showToast(data.message || '操作失败', 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+
+        // 批量操作
+        function toggleSelectAll() {
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            const checkboxes = document.querySelectorAll('.defect-checkbox');
+            checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.defect-checkbox:checked');
+            document.getElementById('selectedCount').textContent = checkboxes.length;
+            document.getElementById('batchActions').classList.toggle('active', checkboxes.length > 0);
+        }
+
+        function cancelBatch() {
+            document.querySelectorAll('.defect-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('headerCheckbox').checked = false;
+            document.getElementById('batchActions').classList.remove('active');
+        }
+
+        function batchAssign() {
+            showToast('批量分配功能开发中', 'error');
+        }
+
+        function batchClose() {
+            showToast('批量关闭功能开发中', 'error');
+        }
+
+        // 工具函数
+        function getSeverityText(severity) {
+            const map = {
+                'critical': '致命',
+                'major': '严重',
+                'normal': '一般',
+                'minor': '轻微',
+                'trivial': '建议'
+            };
+            return map[severity] || severity;
+        }
+
+        function getPriorityText(priority) {
+            const map = {
+                'urgent': '紧急',
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return map[priority] || priority;
+        }
+
+        function getStatusText(status) {
+            const map = {
+                'new': '新建',
+                'confirmed': '已确认',
+                'assigned': '已分配',
+                'in_progress': '修复中',
+                'resolved': '已修复',
+                'verified': '已验证',
+                'closed': '已关闭',
+                'rejected': '已拒绝'
+            };
+            return map[status] || status;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 拖拽处理（看板视图）
+        function handleDragStart(event, defectId) {
+            event.dataTransfer.setData('text/plain', defectId);
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+        }
+
+        async function handleDrop(event, targetStatus) {
+            event.preventDefault();
+            const defectId = event.dataTransfer.getData('text/plain');
+            
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/defects/${defectId}/transition`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetStatus })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('状态更新成功', 'success');
+                    loadDefects();
+                } else {
+                    showToast(data.message || '状态更新失败', 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
