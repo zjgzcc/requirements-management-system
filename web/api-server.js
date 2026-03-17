@@ -3867,8 +3867,11 @@ async function handleApiRequest(req, res, fullUrl) {
             const auth = requireAuth(req, res);
             if (auth.error) return jsonRes(res, auth.error.code, auth.error);
             
-            const { scope } = req.query || {};
-            let fieldsList = customFields.fields || [];
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const scope = urlObj.searchParams.get('scope');
+            const enabledParam = urlObj.searchParams.get('enabled');
+            
+            let fieldsList = (customFields && customFields.fields) || [];
             
             // 按范围过滤
             if (scope && ['requirement', 'testcase'].includes(scope)) {
@@ -3876,7 +3879,7 @@ async function handleApiRequest(req, res, fullUrl) {
             }
             
             // 只返回启用的字段（列表页）
-            if (req.query.enabled !== 'false') {
+            if (enabledParam !== 'false') {
                 fieldsList = fieldsList.filter(f => f.enabled !== false);
             }
             
@@ -4035,7 +4038,7 @@ async function handleApiRequest(req, res, fullUrl) {
             const scope = url.split('/').pop();
             const fields = getCustomFieldsForScope(scope, true);
             
-            return jsonRes(res, 200, { success: true, data: fields });
+            return jsonRes(res, 200, { success: true, data: fields || [] });
         }
 
         // ===== 导出模板管理 API =====
@@ -4244,9 +4247,11 @@ async function handleApiRequest(req, res, fullUrl) {
                     });
                     
                     const buffer = await Packer.toBuffer(doc);
+                    const safeName = template.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    const wordFilename = `export_${safeName}_${Date.now()}.docx`;
                     res.writeHead(200, {
                         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'Content-Disposition': `attachment; filename="导出_${template.name}_${Date.now()}.docx"`
+                        'Content-Disposition': `attachment; filename="${wordFilename}"`
                     });
                     res.end(buffer);
                 } else {
@@ -4280,10 +4285,12 @@ async function handleApiRequest(req, res, fullUrl) {
                     
                     XLSX.utils.book_append_sheet(wb, ws, '导出数据');
                     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+                    const safeName = template.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    const excelFilename = `export_${safeName}_${Date.now()}.xlsx`;
                     
                     res.writeHead(200, {
                         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        'Content-Disposition': `attachment; filename="导出_${template.name}_${Date.now()}.xlsx"`
+                        'Content-Disposition': `attachment; filename="${excelFilename}"`
                     });
                     res.end(buffer);
                 }

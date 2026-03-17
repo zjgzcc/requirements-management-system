@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导出模板管理 - 需求管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn-primary:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+        
+        .filter-bar select {
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 25px;
+        }
+        
+        .template-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 25px;
+            background: white;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .template-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.15);
+            transform: translateY(-4px);
+        }
+        
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .template-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .template-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .type-excel {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .type-word {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .template-visibility {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        
+        .visibility-public {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .visibility-private {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+        
+        .template-description {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .template-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+        
+        .template-fields {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .template-fields h4 {
+            font-size: 14px;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+        
+        .field-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .field-tag {
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #4b5563;
+        }
+        
+        .template-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .template-actions .btn {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            padding: 25px 30px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 22px;
+            color: #1f2937;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-btn:hover {
+            color: #1f2937;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .fields-builder {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .field-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .field-row input,
+        .field-row select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        
+        .add-field-btn {
+            margin-top: 10px;
+        }
+        
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 2px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #374151;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background: #10b981;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.error {
+            background: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 导出模板管理</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="showBackToHome()">← 返回首页</button>
+                <button class="btn btn-success" onclick="openCreateModal()">+ 新建模板</button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="filter-bar">
+                <label>筛选：</label>
+                <select id="filterVisibility" onchange="loadTemplates()">
+                    <option value="all">全部模板</option>
+                    <option value="public">公有模板</option>
+                    <option value="private">我的私有模板</option>
+                </select>
+                <select id="filterType" onchange="loadTemplates()">
+                    <option value="all">所有类型</option>
+                    <option value="excel">Excel</option>
+                    <option value="word">Word</option>
+                </select>
+            </div>
+            
+            <div id="templatesGrid" class="templates-grid">
+                <!-- 模板卡片将通过 JS 动态加载 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建/编辑模板模态框 -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">创建导出模板</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editTemplateId">
+                
+                <div class="form-group">
+                    <label>模板名称 *</label>
+                    <input type="text" id="templateName" placeholder="例如：功能测试导出模板">
+                </div>
+                
+                <div class="form-group">
+                    <label>模板描述</label>
+                    <textarea id="templateDescription" placeholder="描述模板的用途和适用场景"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>导出类型 *</label>
+                    <select id="templateType">
+                        <option value="excel">Excel (.xlsx)</option>
+                        <option value="word">Word (.docx)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>可见性</label>
+                    <select id="templateVisibility">
+                        <option value="private">私有（仅自己可用）</option>
+                        <option value="public">公有（所有用户可用）</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>字段配置</label>
+                    <div class="fields-builder" id="fieldsBuilder">
+                        <div class="field-row" style="font-weight: 600; color: #374151;">
+                            <span>字段名称</span>
+                            <span>字段键</span>
+                            <span>类型</span>
+                            <span>宽度</span>
+                            <span>操作</span>
+                        </div>
+                        <!-- 字段行将通过 JS 动态添加 -->
+                    </div>
+                    <button class="btn btn-secondary add-field-btn" onclick="addFieldRow()">+ 添加字段</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-success" onclick="saveTemplate()">保存模板</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 导出确认模态框 -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>确认导出</h2>
+                <button class="close-btn" onclick="closeExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">请选择要导出的数据范围：</p>
+                <div class="form-group">
+                    <label>数据范围</label>
+                    <select id="exportRange">
+                        <option value="all">全部数据</option>
+                        <option value="selected">选中的数据</option>
+                        <option value="filtered">当前筛选结果</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeExportModal()">取消</button>
+                <button class="btn btn-success" onclick="confirmExport()">开始导出</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        let currentUser = null;
+        let currentTemplates = [];
+        let currentExportTemplateId = null;
+        
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadTemplates();
+        });
+        
+        // 检查登录状态
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (!data.success) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                currentUser = data.data;
+            } catch (error) {
+                window.location.href = '/login.html';
+            }
+        }
+        
+        // 加载模板列表
+        async function loadTemplates() {
+            const visibility = document.getElementById('filterVisibility').value;
+            const type = document.getElementById('filterType').value;
+            
+            try {
+                const res = await fetch(`/api/templates?visibility=${visibility}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentTemplates = data.data;
+                    renderTemplates(currentTemplates, type);
+                } else {
+                    showToast('加载模板失败：' + data.message, true);
+                }
+            } catch (error) {
+                showToast('加载模板失败：' + error.message, true);
+            }
+        }
+        
+        // 渲染模板列表
+        function renderTemplates(templates, typeFilter = 'all') {
+            const grid = document.getElementById('templatesGrid');
+            
+            let filtered = templates;
+            if (typeFilter !== 'all') {
+                filtered = templates.filter(t => t.type === typeFilter);
+            }
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h3>暂无模板</h3>
+                        <p>点击"新建模板"创建您的第一个导出模板</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = filtered.map(t => {
+                const fieldNames = (t.fields || []).map(f => f.name).slice(0, 5).join('、');
+                const moreFields = (t.fields || []).length > 5 ? ` 等${t.fields.length}个字段` : '';
+                const canEdit = t.createdBy === currentUser.id || currentUser.role === 'admin';
+                const canDelete = canEdit && t.createdBy !== 'system';
+                
+                return `
+                    <div class="template-card">
+                        <div class="template-header">
+                            <div>
+                                <div class="template-name">${escapeHtml(t.name)}</div>
+                                <span class="template-type type-${t.type}">${t.type === 'excel' ? '📊 Excel' : '📄 Word'}</span>
+                                <span class="template-visibility visibility-${t.visibility}">${t.visibility === 'public' ? '🌍 公有' : '🔒 私有'}</span>
+                            </div>
+                        </div>
+                        <div class="template-description">${escapeHtml(t.description || '暂无描述')}</div>
+                        <div class="template-meta">
+                            <span>创建者：${escapeHtml(t.createdByName || '系统')}</span>
+                            <span>创建时间：${new Date(t.createdAt).toLocaleDateString('zh-CN')}</span>
+                        </div>
+                        <div class="template-fields">
+                            <h4>包含字段 (${(t.fields || []).length}个)</h4>
+                            <div class="field-tags">
+                                ${fieldNames ? `<span class="field-tag">${fieldNames}${moreFields}</span>` : '<span class="field-tag">暂无字段配置</span>'}
+                            </div>
+                        </div>
+                        <div class="template-actions">
+                            ${canEdit ? `<button class="btn btn-primary" onclick="openEditModal('${t.id}')">编辑</button>` : ''}
+                            <button class="btn btn-success" onclick="openExportModal('${t.id}')">导出</button>
+                            ${canDelete ? `<button class="btn btn-danger" onclick="deleteTemplate('${t.id}')">删除</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 打开创建模态框
+        function openCreateModal() {
+            document.getElementById('modalTitle').textContent = '创建导出模板';
+            document.getElementById('editTemplateId').value = '';
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateDescription').value = '';
+            document.getElementById('templateType').value = 'excel';
+            document.getElementById('templateVisibility').value = 'private';
+            document.getElementById('fieldsBuilder').innerHTML = `
+                <div class="field-row" style="font-weight: 600; color: #374151;">
+                    <span>字段名称</span>
+                    <span>字段键</span>
+                    <span>类型</span>
+                    <span>宽度</span>
+                    <span>操作</span>
+                </div>
+            `;
+            addFieldRow();
+            document.getElementById('templateModal').classList.add('active');
+        }
+        
+        // 打开编辑模态框
+        async function openEditModal(templateId) {
+            try {
+                const res = await fetch(`/api/templates/${templateId}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    const t = data.data;
+                    document.getElementById('modalTitle').textContent = '编辑导出模板';
+                    document.getElementById('editTemplateId').value = t.id;
+                    document.getElementById('templateName').value = t.name;
+                    document.getElementById('templateDescription').value = t.description || '';
+                    document.getElementById('templateType').value = t.type;
+                    document.getElementById('templateVisibility').value = t.visibility;
+                    
+                    // 加载字段
+                    document.getElementById('fieldsBuilder').innerHTML = `
+                        <div class="field-row" style="font-weight: 600; color: #374151;">
+                            <span>字段名称</span>
+                            <span>字段键</span>
+                            <span>类型</span>
+                            <span>宽度</span>
+                            <span>操作</span>
+                        </div>
+                    `;
+                    
+                    if (t.fields && t.fields.length > 0) {
+                        t.fields.forEach(f => addFieldRow(f.name, f.key, f.type, f.width));
+                    } else {
+                        addFieldRow();
+                    }
+                    
+                    document.getElementById('templateModal').classList.add('active');
+                }
+            } catch (error) {
+                showToast('加载模板详情失败：' + error.message, true);
+            }
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('templateModal').classList.remove('active');
+        }
+        
+        // 添加字段行
+        function addFieldRow(name = '', key = '', type = 'text', width = 15) {
+            const builder = document.getElementById('fieldsBuilder');
+            const row = document.createElement('div');
+            row.className = 'field-row';
+            row.innerHTML = `
+                <input type="text" placeholder="字段名称" value="${escapeHtml(name)}" class="field-name">
+                <input type="text" placeholder="字段键" value="${escapeHtml(key)}" class="field-key">
+                <select class="field-type">
+                    <option value="text" ${type === 'text' ? 'selected' : ''}>文本</option>
+                    <option value="number" ${type === 'number' ? 'selected' : ''}>数字</option>
+                    <option value="date" ${type === 'date' ? 'selected' : ''}>日期</option>
+                    <option value="select" ${type === 'select' ? 'selected' : ''}>选项</option>
+                </select>
+                <input type="number" placeholder="宽度" value="${width}" class="field-width" min="5" max="50">
+                <button class="btn btn-danger" onclick="this.parentElement.remove()" style="padding: 6px 12px;">×</button>
+            `;
+            builder.appendChild(row);
+        }
+        
+        // 保存模板
+        async function saveTemplate() {
+            const templateId = document.getElementById('editTemplateId').value;
+            const name = document.getElementById('templateName').value.trim();
+            const description = document.getElementById('templateDescription').value.trim();
+            const type = document.getElementById('templateType').value;
+            const visibility = document.getElementById('templateVisibility').value;
+            
+            if (!name) {
+                showToast('请输入模板名称', true);
+                return;
+            }
+            
+            // 收集字段
+            const fields = [];
+            document.querySelectorAll('#fieldsBuilder .field-row').forEach(row => {
+                const nameInput = row.querySelector('.field-name');
+                const keyInput = row.querySelector('.field-key');
+                const typeSelect = row.querySelector('.field-type');
+                const widthInput = row.querySelector('.field-width');
+                
+                if (nameInput && nameInput.value.trim()) {
+                    fields.push({
+                        name: nameInput.value.trim(),
+                        key: keyInput.value.trim() || nameInput.value.trim(),
+                        type: typeSelect ? typeSelect.value : 'text',
+                        width: parseInt(widthInput ? widthInput.value : 15) || 15
+                    });
+                }
+            });
+            
+            const templateData = {
+                name,
+                description,
+                type,
+                visibility,
+                fields
+            };
+            
+            try {
+                const url = templateId ? `/api/templates/${templateId}` : '/api/templates';
+                const method = templateId ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateData)
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    showToast(templateId ? '模板更新成功' : '模板创建成功');
+                    closeModal();
+                    loadTemplates();
+                } else {
+                    showToast('保存失败：' + data.message, true);
+                }
+            } catch (error) {
+                showToast('保存失败：' + error.message, true);
+            }
+        }
+        
+        // 删除模板
+        async function deleteTemplate(templateId) {
+            if (!confirm('确定要删除此模板吗？此操作不可恢复。')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/templates/${templateId}`, { method: 'DELETE' });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showToast('模板删除成功');
+                    loadTemplates();
+                } else {
+                    showToast('删除失败：' + data.message, true);
+                }
+            } catch (error) {
+                showToast('删除失败：' + error.message, true);
+            }
+        }
+        
+        // 打开导出模态框
+        function openExportModal(templateId) {
+            currentExportTemplateId = templateId;
+            document.getElementById('exportModal').classList.add('active');
+        }
+        
+        // 关闭导出模态框
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('active');
+            currentExportTemplateId = null;
+        }
+        
+        // 确认导出
+        async function confirmExport() {
+            if (!currentExportTemplateId) return;
+            
+            const range = document.getElementById('exportRange').value;
+            
+            // 这里简化处理，实际应该根据范围获取数据
+            // 演示用：导出空数组
+            const exportData = [];
+            
+            try {
+                const res = await fetch(`/api/templates/${currentExportTemplateId}/export?data=${encodeURIComponent(JSON.stringify(exportData))}`);
+                
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `导出_${new Date().getTime()}.xlsx`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showToast('导出成功');
+                    closeExportModal();
+                } else {
+                    const error = await res.json();
+                    showToast('导出失败：' + error.message, true);
+                }
+            } catch (error) {
+                showToast('导出失败：' + error.message, true);
+            }
+        }
+        
+        // 返回首页
+        function showBackToHome() {
+            window.location.href = '/home.html';
+        }
+        
+        // 显示提示消息
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show' + (isError ? ' error' : '');
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+        
+        // HTML 转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

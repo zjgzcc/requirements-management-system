@@ -1,0 +1,179 @@
+{
+  "templates": [
+    {
+      "id": "tpl_default_functional",
+      "name": "功能测试模板",
+      "description": "适用于常规功能测试场景",
+      "type": "excel",
+      "visibility": "public",
+      "createdBy": "system",
+      "createdAt": "2026-03-17T00:00:00.000Z",
+      "fields": [
+        {
+          "name": "用例 ID",
+          "key": "tcId",
+          "type": "text",
+          "width": 15
+        },
+        {
+          "name": "用例名称",
+          "key": "title",
+          "type": "text",
+          "width": 30
+        },
+        {
+          "name": "前置条件",
+          "key": "precondition",
+          "type": "text",
+          "width": 25
+        },
+        {
+          "name": "操作步骤",
+          "key": "steps",
+          "type": "richtext",
+          "width": 40
+        },
+        {
+          "name": "预期结果",
+          "key": "expectedResult",
+          "type": "text",
+          "width": 30
+        },
+        {
+          "name": "优先级",
+          "key": "priority",
+          "type": "select",
+          "width": 10
+        },
+        {
+          "name": "测试类型",
+          "key": "testType",
+          "type": "select",
+          "width": 15
+        }
+      ],
+      "styles": {
+        "header": {
+          "bold": true,
+          "backgroundColor": "#4472C4",
+          "color": "#FFFFFF"
+        },
+        "row": {
+          "height": 30
+        },
+        "border": true
+      }
+    },
+    {
+      "id": "tpl_default_login",
+      "name": "登录测试模板",
+      "description": "用户登录相关测试场景",
+      "type": "excel",
+      "visibility": "public",
+      "createdBy": "system",
+      "createdAt": "2026-03-17T00:00:00.000Z",
+      "fields": [
+        {
+          "name": "测试场景",
+          "key": "scenario",
+          "type": "text",
+          "width": 25
+        },
+        {
+          "name": "测试步骤",
+          "key": "steps",
+          "type": "richtext",
+          "width": 45
+        },
+        {
+          "name": "测试数据",
+          "key": "testData",
+          "type": "text",
+          "width": 25
+        },
+        {
+          "name": "预期结果",
+          "key": "expectedResult",
+          "type": "text",
+          "width": 30
+        }
+      ],
+      "styles": {
+        "header": {
+          "bold": true,
+          "backgroundColor": "#70AD47",
+          "color": "#FFFFFF"
+        },
+        "row": {
+          "height": 30
+        },
+        "border": true
+      }
+    },
+    {
+      "id": "tpl_default_word",
+      "name": "Word 文档模板",
+      "description": "适用于 Word 格式导出",
+      "type": "word",
+      "visibility": "public",
+      "createdBy": "system",
+      "createdAt": "2026-03-17T00:00:00.000Z",
+      "fields": [
+        {
+          "name": "用例标题",
+          "key": "title",
+          "type": "heading",
+          "level": 1
+        },
+        {
+          "name": "用例 ID",
+          "key": "tcId",
+          "type": "text",
+          "bold": true
+        },
+        {
+          "name": "项目",
+          "key": "project",
+          "type": "text"
+        },
+        {
+          "name": "前置条件",
+          "key": "precondition",
+          "type": "paragraph"
+        },
+        {
+          "name": "测试步骤",
+          "key": "steps",
+          "type": "numberedlist"
+        },
+        {
+          "name": "预期结果",
+          "key": "expectedResult",
+          "type": "paragraph"
+        },
+        {
+          "name": "备注",
+          "key": "notes",
+          "type": "paragraph"
+        }
+      ],
+      "styles": {
+        "heading1": {
+          "bold": true,
+          "fontSize": 16,
+          "spacing": {
+            "before": 200,
+            "after": 100
+          }
+        },
+        "paragraph": {
+          "fontSize": 11,
+          "spacing": {
+            "before": 100,
+            "after": 50
+          }
+        }
+      }
+    }
+  ]
+}
