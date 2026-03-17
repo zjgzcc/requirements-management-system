@@ -1,162 +1,94 @@
 [
   {
-    "id": "mmsw3ni5s2wd8tgzjm",
+    "id": "sample1",
     "type": "requirement",
-    "itemId": "baseline",
-    "action": "baseline",
-    "changes": {
-      "baselineId": "mmsw3ni5hpf1nm209u5",
-      "name": "V1RE1",
-      "version": "V1"
+    "itemId": "req_sample_001",
+    "action": "update",
+    "changes": [
+      {
+        "field": "status",
+        "fieldName": "状态变更",
+        "oldValue": "draft",
+        "newValue": "review",
+        "changeType": "modified",
+        "impactLevel": "medium",
+        "annotation": "状态从 \"draft\" 变更为 \"review\""
+      },
+      {
+        "field": "priority",
+        "fieldName": "优先级变更",
+        "oldValue": "medium",
+        "newValue": "high",
+        "changeType": "modified",
+        "impactLevel": "medium",
+        "annotation": "优先级从 \"medium\" 调整为 \"high\""
+      }
+    ],
+    "rawChanges": {
+      "oldData": { "status": "draft", "priority": "medium" },
+      "newData": { "status": "review", "priority": "high" }
     },
-    "userId": "system",
-    "timestamp": "2026-03-16T07:56:32.573Z"
+    "userId": "admin",
+    "operationSource": "api",
+    "impactStats": {
+      "high": 0,
+      "medium": 2,
+      "low": 0,
+      "total": 2
+    },
+    "impactSummary": "优先级提升，进入评审流程",
+    "timestamp": "2026-03-17T04:30:00.000Z",
+    "audit": {
+      "ipAddress": "192.168.1.100",
+      "userAgent": "Mozilla/5.0",
+      "sessionId": "session_123",
+      "reason": "根据客户需求评审会议决议更新"
+    }
   },
   {
-    "id": "mmu219ju52xd1zilbo3",
+    "id": "sample2",
     "type": "testcase",
-    "itemId": "mmu219juxbbaeukumzq",
+    "itemId": "tc_sample_001",
     "action": "create",
-    "changes": {
-      "expectedResult": "成功登录",
-      "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
+    "changes": [],
+    "rawChanges": {
       "title": "登录功能测试",
       "type": "功能测试",
       "status": "not_executed",
-      "priority": "high",
-      "assignee": "张三"
+      "priority": "high"
     },
-    "userId": "system",
-    "timestamp": "2026-03-17T03:30:25.050Z"
+    "userId": "admin",
+    "operationSource": "manual",
+    "timestamp": "2026-03-17T03:30:25.050Z",
+    "audit": {
+      "ipAddress": "localhost",
+      "userAgent": "system",
+      "sessionId": null,
+      "reason": null
+    }
   },
   {
-    "id": "mmu219kcpp08djy9vle",
-    "type": "testcase",
-    "itemId": "mmu219juxbbaeukumzq",
-    "action": "execute",
-    "changes": {
-      "status": "pass",
-      "executedBy": "测试员",
-      "executionRecordId": "mmu219kcrud8gbh81h"
+    "id": "sample3",
+    "type": "requirement",
+    "itemId": "baseline",
+    "action": "restore",
+    "changes": [],
+    "rawChanges": {
+      "baselineId": "bl_001",
+      "baselineVersion": "V2.0",
+      "restoredItems": 15,
+      "backupCreated": true,
+      "reason": "发现 V2.1 版本存在严重问题，回退到稳定版本"
     },
     "userId": "system",
-    "timestamp": "2026-03-17T03:30:25.068Z"
-  },
-  {
-    "id": "mmu219mlzo0juv4ccms",
-    "type": "testcase",
-    "itemId": "mmu219juxbbaeukumzq",
-    "action": "update",
-    "changes": {
-      "oldData": {
-        "id": "mmu219juxbbaeukumzq",
-        "tcId": "TEST-11",
-        "projectId": "mmslip4ss321w2qimp",
-        "prefix": "TEST",
-        "title": "登录功能测试",
-        "type": "功能测试",
-        "status": "pass",
-        "priority": "high",
-        "assignee": "张三",
-        "steps": "",
-        "expectedResult": "成功登录",
-        "headerId": null,
-        "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
-        "attachments": [],
-        "lastExecuted": "2026-03-17T03:30:25.068Z",
-        "columns": [
-          {
-            "id": "mmu219jurhyhn0fqwuf",
-            "name": "操作步骤",
-            "type": "text",
-            "value": ""
-          },
-          {
-            "id": "mmu219jupam4ldgwxd",
-            "name": "预期结果",
-            "type": "text",
-            "value": "成功登录"
-          }
-        ],
-        "createdAt": "2026-03-17T03:30:25.050Z",
-        "updatedAt": "2026-03-17T03:30:25.068Z",
-        "executionHistory": [
-          {
-            "id": "mmu219kcrud8gbh81h",
-            "testcaseId": "mmu219juxbbaeukumzq",
-            "status": "pass",
-            "result": "所有步骤执行成功，功能正常",
-            "executedBy": "测试员",
-            "duration": 15,
-            "notes": "首次执行通过",
-            "attachments": [],
-            "executedAt": "2026-03-17T03:30:25.068Z"
-          }
-        ]
-      },
-      "newData": {
-        "title": "登录功能测试（已更新）",
-        "status": "pass",
-        "priority": "urgent"
-      }
-    },
-    "userId": "system",
-    "timestamp": "2026-03-17T03:30:25.149Z"
-  },
-  {
-    "id": "mmu219n05zndx2m9c82",
-    "type": "testcase",
-    "itemId": "mmu219juxbbaeukumzq",
-    "action": "delete",
-    "changes": {
-      "deletedData": {
-        "id": "mmu219juxbbaeukumzq",
-        "tcId": "TEST-11",
-        "projectId": "mmslip4ss321w2qimp",
-        "prefix": "TEST",
-        "title": "登录功能测试（已更新）",
-        "type": "功能测试",
-        "status": "pass",
-        "priority": "urgent",
-        "assignee": "张三",
-        "steps": "",
-        "expectedResult": "成功登录",
-        "headerId": null,
-        "richContent": "<p>1. 打开登录页面</p><p>2. 输入用户名和密码</p><p>3. 点击登录</p>",
-        "attachments": [],
-        "lastExecuted": "2026-03-17T03:30:25.068Z",
-        "columns": [
-          {
-            "id": "mmu219jurhyhn0fqwuf",
-            "name": "操作步骤",
-            "type": "text",
-            "value": ""
-          },
-          {
-            "id": "mmu219jupam4ldgwxd",
-            "name": "预期结果",
-            "type": "text",
-            "value": "成功登录"
-          }
-        ],
-        "createdAt": "2026-03-17T03:30:25.050Z",
-        "updatedAt": "2026-03-17T03:30:25.149Z",
-        "executionHistory": [
-          {
-            "id": "mmu219kcrud8gbh81h",
-            "testcaseId": "mmu219juxbbaeukumzq",
-            "status": "pass",
-            "result": "所有步骤执行成功，功能正常",
-            "executedBy": "测试员",
-            "duration": 15,
-            "notes": "首次执行通过",
-            "attachments": [],
-            "executedAt": "2026-03-17T03:30:25.068Z"
-          }
-        ]
-      }
-    },
-    "userId": "system",
-    "timestamp": "2026-03-17T03:30:25.164Z"
+    "operationSource": "restore",
+    "impactSummary": "恢复 15 项，其中更新 12 项，还原 3 项",
+    "timestamp": "2026-03-17T05:00:00.000Z",
+    "audit": {
+      "ipAddress": "localhost",
+      "userAgent": "system",
+      "sessionId": null,
+      "reason": "发现 V2.1 版本存在严重问题，回退到稳定版本"
+    }
   }
 ]

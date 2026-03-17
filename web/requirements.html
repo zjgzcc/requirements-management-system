@@ -536,9 +536,125 @@
         .history-action.update { color: #3498db; }
         .history-action.delete { color: #e74c3c; }
         .history-action.baseline { color: #9b59b6; }
+        .history-action.restore { color: #e67e22; }
         .history-changes {
             font-size: 12px; color: #666; margin-top: 6px;
             padding-left: 12px; border-left: 2px solid #e1e1e1;
+        }
+        
+        /* 变更详情样式 */
+        .change-detail {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+        .change-item {
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .change-item:last-child {
+            margin-bottom: 0;
+        }
+        .change-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .change-field {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        .change-type {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .change-type.added {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .change-type.removed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .change-type.modified {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .change-diff {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .change-old {
+            background: #fee2e2;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            color: #991b1b;
+        }
+        .change-new {
+            background: #d1fae5;
+            padding: 6px 8px;
+            border-radius: 4px;
+            color: #065f46;
+        }
+        .change-annotation {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #e1e1e1;
+        }
+        .impact-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .impact-high {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .impact-medium {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        .impact-low {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        /* 审计日志统计 */
+        .audit-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .audit-stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .audit-stat-number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .audit-stat-label {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-top: 4px;
         }
         
         /* 基线版本列表 */
@@ -1452,13 +1568,19 @@
 
     <!-- 历史记录模态框 -->
     <div class="modal-overlay" id="historyModal">
-        <div class="modal">
+        <div class="modal" style="max-width: 900px;">
             <div class="modal-header">
-                <h2>修改历史</h2>
-                <button class="close-btn" onclick="closeModal('historyModal')">×</button>
+                <h2>📜 修改历史与审计日志</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary btn-sm" onclick="exportAuditLog()">📊 导出日志</button>
+                    <button class="close-btn" onclick="closeModal('historyModal')">×</button>
+                </div>
             </div>
             <div class="modal-body">
                 <div id="historyList" class="history-list"></div>
+                <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666;">
+                    <strong>💡 提示：</strong>历史记录包含变更类型（新增/修改/删除）、影响范围（高/中/低）和变更批注。支持按时间、操作类型、用户等维度筛选。
+                </div>
             </div>
         </div>
     </div>
@@ -2628,6 +2750,37 @@
                     
                     let html = '';
                     
+                    // 变更概览
+                    html += `
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <h4 style="margin-top: 0; color: #333;">📊 变更概览</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                                <div style="padding: 10px; background: #e8f5e9; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">${stats.added}</div>
+                                    <div style="font-size: 12px; color: #666;">新增项</div>
+                                </div>
+                                <div style="padding: 10px; background: #ffebee; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #c62828;">${stats.removed}</div>
+                                    <div style="font-size: 12px; color: #666;">删除项</div>
+                                </div>
+                                <div style="padding: 10px; background: #fff3e0; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #e65100;">${stats.modified}</div>
+                                    <div style="font-size: 12px; color: #666;">修改项</div>
+                                </div>
+                                <div style="padding: 10px; background: #e3f2fd; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #1565c0;">${stats.unchanged}</div>
+                                    <div style="font-size: 12px; color: #666;">未变化</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 6px;">
+                                <div style="font-size: 13px; color: #666;">
+                                    <strong>变更率：</strong>${stats.changeRate} | 
+                                    <strong>稳定性评分：</strong>${data.summary?.stabilityScore?.toFixed(1) || 100}/100
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
                     // 新增项
                     if (result.added.length > 0) {
                         html += `
@@ -2656,7 +2809,7 @@
                         `;
                     }
                     
-                    // 修改项
+                    // 修改项（增强版 - 显示字段级差异）
                     if (result.modified.length > 0) {
                         html += `
                             <div style="margin-bottom: 20px;">
@@ -2665,17 +2818,31 @@
                                     <div style="background: #fff3e0; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ff9800;">
                                         <strong>${item.reqId}</strong>: ${item.description || '无描述'}
                                         <div style="margin-top: 8px; font-size: 13px;">
-                                            ${item.changes.map(change => `
-                                                <div style="margin: 5px 0;">
-                                                    <div style="color: #666;">${change.field}:</div>
-                                                    <div style="background: #ffebee; padding: 5px; margin: 3px 0; border-radius: 3px;">
-                                                        <span style="color: #c62828;">➜ ${change.oldValue || '(空)'}</span>
+                                            ${item.changes && item.changes.length > 0 ? item.changes.map(change => `
+                                                <div style="margin: 8px 0; background: white; padding: 8px; border-radius: 4px;">
+                                                    <div style="font-weight: 600; color: #666; margin-bottom: 4px; font-size: 12px;">
+                                                        ${change.fieldName || change.field}
+                                                        <span class="change-type ${change.changeType || 'modified'}" style="margin-left: 8px;">
+                                                            ${change.changeType === 'added' ? '新增' : change.changeType === 'removed' ? '删除' : '修改'}
+                                                        </span>
                                                     </div>
-                                                    <div style="background: #e8f5e9; padding: 5px; margin: 3px 0; border-radius: 3px;">
-                                                        <span style="color: #2e7d32;">➜ ${change.newValue || '(空)'}</span>
-                                                    </div>
+                                                    ${change.oldValue !== undefined ? `
+                                                        <div style="background: #ffebee; padding: 6px; margin: 3px 0; border-radius: 3px; font-size: 12px;">
+                                                            <span style="color: #c62828;">◀ ${change.oldValue || '(空)'}</span>
+                                                        </div>
+                                                    ` : ''}
+                                                    ${change.newValue !== undefined ? `
+                                                        <div style="background: #e8f5e9; padding: 6px; margin: 3px 0; border-radius: 3px; font-size: 12px;">
+                                                            <span style="color: #2e7d32;">▶ ${change.newValue || '(空)'}</span>
+                                                        </div>
+                                                    ` : ''}
+                                                    ${change.annotation ? `
+                                                        <div style="font-size: 11px; color: #666; font-style: italic; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e1e1e1;">
+                                                            💡 ${change.annotation}
+                                                        </div>
+                                                    ` : ''}
                                                 </div>
-                                            `).join('')}
+                                            `).join('') : '<div style="color: #999; font-size: 12px;">无详细变更记录</div>'}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -2689,7 +2856,9 @@
                             <div style="margin-bottom: 20px;">
                                 <h4 style="color: #1565c0; margin-bottom: 10px;">✓ 未变项 (${result.unchanged.length})</h4>
                                 <details>
-                                    <summary style="cursor: pointer; color: #666;">点击查看未变化的项目</summary>
+                                    <summary style="cursor: pointer; color: #666; padding: 8px; background: #f5f5f5; border-radius: 4px;">
+                                        点击查看未变化的项目
+                                    </summary>
                                     <div style="margin-top: 10px;">
                                         ${result.unchanged.map(item => `
                                             <div style="background: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 5px;">
@@ -3391,26 +3560,148 @@
         async function viewHistory(type, itemId) {
             document.getElementById('historyModal').classList.add('active');
             try {
-                const response = await fetch(`${API_BASE}/history?type=${type}&itemId=${itemId}&limit=50`);
+                const response = await fetch(`${API_BASE}/history?type=${type}&itemId=${itemId}&limit=50&analysis=true`);
                 const data = await response.json();
                 const list = document.getElementById('historyList');
                 
                 if (data.success && data.data.length > 0) {
-                    list.innerHTML = data.data.map(h => `
-                        <div class="history-item">
-                            <div class="history-time">${new Date(h.timestamp).toLocaleString('zh-CN')}</div>
-                            <div class="history-action ${h.action}">
-                                ${h.action === 'create' ? '➕ 创建' : 
-                                  h.action === 'update' ? '✏️ 更新' : 
-                                  h.action === 'delete' ? '🗑️ 删除' : '📌 基线'}
+                    // 显示统计信息
+                    let statsHtml = '';
+                    if (data.stats) {
+                        statsHtml = `
+                            <div class="audit-stats">
+                                <div class="audit-stat-card">
+                                    <div class="audit-stat-number">${data.stats.total}</div>
+                                    <div class="audit-stat-label">总记录数</div>
+                                </div>
+                                <div class="audit-stat-card" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">
+                                    <div class="audit-stat-number">${data.stats.byAction.create || 0}</div>
+                                    <div class="audit-stat-label">创建</div>
+                                </div>
+                                <div class="audit-stat-card" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+                                    <div class="audit-stat-number">${data.stats.byAction.update || 0}</div>
+                                    <div class="audit-stat-label">更新</div>
+                                </div>
+                                <div class="audit-stat-card" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);">
+                                    <div class="audit-stat-number">${data.stats.byAction.delete || 0}</div>
+                                    <div class="audit-stat-label">删除</div>
+                                </div>
                             </div>
-                            <div class="history-changes">${JSON.stringify(h.changes, null, 2)}</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }
+                    
+                    list.innerHTML = statsHtml + data.data.map(h => {
+                        const actionText = {
+                            'create': '➕ 创建',
+                            'update': '✏️ 更新',
+                            'delete': '🗑️ 删除',
+                            'baseline': '📌 基线',
+                            'restore': '↩️ 恢复',
+                            'execute': '▶️ 执行'
+                        }[h.action] || h.action;
+                        
+                        // 显示变更详情（如果有分析数据）
+                        let changesDetail = '';
+                        if (h.changes && Array.isArray(h.changes) && h.changes.length > 0) {
+                            changesDetail = `
+                                <div class="change-detail">
+                                    <div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 8px;">
+                                        📝 变更详情（${h.changes.length} 处修改）
+                                        ${h.impactStats ? `
+                                            <span style="margin-left: 10px;">
+                                                <span class="impact-badge impact-high">高 ${h.impactStats.high}</span>
+                                                <span class="impact-badge impact-medium">中 ${h.impactStats.medium}</span>
+                                                <span class="impact-badge impact-low">低 ${h.impactStats.low}</span>
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    ${h.changes.map(change => `
+                                        <div class="change-item">
+                                            <div class="change-header">
+                                                <span class="change-field">${change.fieldName || change.field}</span>
+                                                <span>
+                                                    <span class="change-type ${change.changeType}">
+                                                        ${change.changeType === 'added' ? '➕ 新增' : change.changeType === 'removed' ? '➖ 删除' : '✏️ 修改'}
+                                                    </span>
+                                                    <span class="impact-badge impact-${change.impactLevel}">
+                                                        ${change.impactLevel === 'high' ? '🔴 高影响' : change.impactLevel === 'medium' ? '🟡 中影响' : '🟢 低影响'}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            ${change.changeType !== 'added' ? `
+                                                <div class="change-old">
+                                                    <strong>原值：</strong>${change.oldValue || '(空)'}
+                                                </div>
+                                            ` : ''}
+                                            ${change.changeType !== 'removed' ? `
+                                                <div class="change-new">
+                                                    <strong>新值：</strong>${change.newValue || '(空)'}
+                                                </div>
+                                            ` : ''}
+                                            ${change.annotation ? `
+                                                <div class="change-annotation">
+                                                    💡 ${change.annotation}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        } else if (h.rawChanges) {
+                            changesDetail = `
+                                <div class="change-detail">
+                                    <pre style="font-size: 11px; color: #666; margin: 0; white-space: pre-wrap;">${JSON.stringify(h.rawChanges, null, 2)}</pre>
+                                </div>
+                            `;
+                        }
+                        
+                        return `
+                            <div class="history-item">
+                                <div class="history-time">
+                                    ${new Date(h.timestamp).toLocaleString('zh-CN')}
+                                    ${h.operationSource ? `<span style="margin-left: 8px; padding: 2px 6px; background: #f0f0f0; border-radius: 4px; font-size: 10px;">${h.operationSource}</span>` : ''}
+                                </div>
+                                <div class="history-action ${h.action}">${actionText}</div>
+                                ${h.userId && h.userId !== 'system' ? `<div style="font-size: 11px; color: #999; margin-top: 4px;">👤 操作人：${h.userId}</div>` : ''}
+                                ${h.audit?.reason ? `<div style="font-size: 11px; color: #666; margin-top: 4px; font-style: italic;">📌 原因：${h.audit.reason}</div>` : ''}
+                                ${changesDetail}
+                            </div>
+                        `;
+                    }).join('');
                 } else {
                     list.innerHTML = '<div class="empty-state"><p>暂无历史记录</p></div>';
                 }
-            } catch (error) { console.error('加载历史失败:', error); }
+            } catch (error) { 
+                console.error('加载历史失败:', error);
+                list.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+            }
+        }
+
+        // 导出审计日志
+        async function exportAuditLog() {
+            const startDate = prompt('请输入开始日期 (YYYY-MM-DD)，留空表示不限制:', '');
+            if (startDate === null) return; // 用户取消
+            
+            const endDate = prompt('请输入结束日期 (YYYY-MM-DD)，留空表示不限制:', '');
+            if (endDate === null) return;
+            
+            const format = 'csv';
+            let url = `${API_BASE}/history/export?format=${format}`;
+            if (startDate) url += `&startDate=${startDate}`;
+            if (endDate) url += `&endDate=${endDate}`;
+            
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+                showToast('审计日志导出成功', 'success');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败', 'error');
+            }
         }
 
         function exportToExcel() {
