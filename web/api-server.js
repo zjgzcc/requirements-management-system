@@ -833,7 +833,8 @@ async function handleApiRequest(req, res, fullUrl) {
 
         if (url === '/api/testcases' && method === 'POST') {
             const body = await parseBody(req);
-            const { projectId, prefix, steps, expectedResult, headerId, savePrefix, richContent } = body;
+            const { projectId, prefix, steps, expectedResult, headerId, savePrefix, richContent, 
+                    title, type, status, priority, assignee } = body;
 
             if (!projectId) {
                 return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
@@ -847,11 +848,17 @@ async function handleApiRequest(req, res, fullUrl) {
                 tcId,
                 projectId,
                 prefix: prefix || 'TC',
+                title: title || '',
+                type: type || '功能测试',
+                status: status || 'not_executed',
+                priority: priority || 'medium',
+                assignee: assignee || '',
                 steps: steps || '',
                 expectedResult: expectedResult || '',
                 headerId: headerId || null,
                 richContent: richContent || null,
                 attachments: [],
+                lastExecuted: null,
                 columns: columns || [
                     { id: generateUniqueId(), name: '操作步骤', type: 'text', value: steps || '' },
                     { id: generateUniqueId(), name: '预期结果', type: 'text', value: expectedResult || '' }
@@ -861,7 +868,7 @@ async function handleApiRequest(req, res, fullUrl) {
             };
 
             testcases.push(newTestcase);
-            recordHistory('testcase', newTestcase.id, 'create', { steps, expectedResult, richContent });
+            recordHistory('testcase', newTestcase.id, 'create', { steps, expectedResult, richContent, title, type, status, priority, assignee });
             
             if (savePrefix && prefix) {
                 prefixes.testcase = prefix;
@@ -882,13 +889,25 @@ async function handleApiRequest(req, res, fullUrl) {
             }
 
             const oldData = { ...testcases[tcIndex] };
-            const { steps, expectedResult, columns } = body;
+            const { steps, expectedResult, columns, title, type, status, priority, assignee, 
+                    richContent, headerId, lastExecuted } = body;
+            if (title !== undefined) testcases[tcIndex].title = title;
+            if (type !== undefined) testcases[tcIndex].type = type;
+            if (status !== undefined) testcases[tcIndex].status = status;
+            if (priority !== undefined) testcases[tcIndex].priority = priority;
+            if (assignee !== undefined) testcases[tcIndex].assignee = assignee;
             if (steps !== undefined) testcases[tcIndex].steps = steps;
             if (expectedResult !== undefined) testcases[tcIndex].expectedResult = expectedResult;
+            if (richContent !== undefined) testcases[tcIndex].richContent = richContent;
+            if (headerId !== undefined) testcases[tcIndex].headerId = headerId;
+            if (lastExecuted !== undefined) testcases[tcIndex].lastExecuted = lastExecuted;
             if (columns !== undefined) testcases[tcIndex].columns = columns;
             testcases[tcIndex].updatedAt = new Date().toISOString();
 
-            recordHistory('testcase', tcId, 'update', { oldData, newData: { steps, expectedResult, columns } });
+            recordHistory('testcase', tcId, 'update', { 
+                oldData, 
+                newData: { steps, expectedResult, columns, title, type, status, priority, assignee, richContent, lastExecuted } 
+            });
             saveData();
 
             return jsonRes(res, 200, { success: true, message: '用例更新成功', data: testcases[tcIndex] });
@@ -909,6 +928,73 @@ async function handleApiRequest(req, res, fullUrl) {
             saveData();
 
             return jsonRes(res, 200, { success: true, message: '用例已删除' });
+        }
+
+        // ===== 用例执行记录 API =====
+        if (url.match(/^\/api\/testcases\/[^\/]+\/execute$/) && method === 'POST') {
+            const tcId = url.split('/')[3];
+            const body = await parseBody(req);
+            const tcIndex = testcases.findIndex(t => t.id === tcId);
+            
+            if (tcIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '用例不存在' });
+            }
+
+            const { status, result, executedBy, duration, notes, attachments } = body;
+            
+            // 更新用例状态和最后执行时间
+            testcases[tcIndex].status = status || testcases[tcIndex].status;
+            testcases[tcIndex].lastExecuted = new Date().toISOString();
+            testcases[tcIndex].updatedAt = new Date().toISOString();
+            
+            // 创建执行记录
+            const executionRecord = {
+                id: generateUniqueId(),
+                testcaseId: tcId,
+                status: status || 'not_executed',
+                result: result || '',
+                executedBy: executedBy || 'system',
+                duration: duration || 0,
+                notes: notes || '',
+                attachments: attachments || [],
+                executedAt: new Date().toISOString()
+            };
+            
+            // 保存到执行历史记录
+            if (!testcases[tcIndex].executionHistory) {
+                testcases[tcIndex].executionHistory = [];
+            }
+            testcases[tcIndex].executionHistory.push(executionRecord);
+            
+            recordHistory('testcase', tcId, 'execute', { 
+                status: testcases[tcIndex].status, 
+                executedBy, 
+                executionRecordId: executionRecord.id 
+            });
+            saveData();
+
+            return jsonRes(res, 201, { 
+                success: true, 
+                message: '用例执行记录成功', 
+                data: { testcase: testcases[tcIndex], executionRecord } 
+            });
+        }
+
+        // 获取用例执行历史
+        if (url.match(/^\/api\/testcases\/[^\/]+\/history$/) && method === 'GET') {
+            const tcId = url.split('/')[3];
+            const testcase = testcases.find(t => t.id === tcId);
+            
+            if (!testcase) {
+                return jsonRes(res, 404, { success: false, message: '用例不存在' });
+            }
+            
+            const executionHistory = testcase.executionHistory || [];
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: executionHistory.sort((a, b) => new Date(b.executedAt) - new Date(a.executedAt)) 
+            });
         }
 
         // ===== 追踪关系 API =====
@@ -968,6 +1054,77 @@ async function handleApiRequest(req, res, fullUrl) {
             return jsonRes(res, 200, { success: true, message: '追踪关系已删除' });
         }
 
+        // 获取用例关联的需求
+        if (url.match(/^\/api\/testcases\/[^\/]+\/traces$/) && method === 'GET') {
+            const tcId = url.split('/')[3];
+            const testcase = testcases.find(t => t.id === tcId);
+            
+            if (!testcase) {
+                return jsonRes(res, 404, { success: false, message: '用例不存在' });
+            }
+            
+            // 查找该用例关联的所有需求
+            const relatedTraces = traces.filter(t => t.testcaseId === tcId);
+            const relatedRequirements = relatedTraces.map(trace => {
+                const req = requirements.find(r => r.id === trace.requirementId);
+                return req ? { ...req, traceId: trace.id } : null;
+            }).filter(r => r !== null);
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: { testcase, relatedRequirements } 
+            });
+        }
+
+        // 批量关联需求到用例
+        if (url === '/api/traces/batch-link' && method === 'POST') {
+            const body = await parseBody(req);
+            const { testcaseId, requirementIds } = body;
+
+            if (!testcaseId || !requirementIds || !Array.isArray(requirementIds)) {
+                return jsonRes(res, 400, { success: false, message: '参数错误' });
+            }
+
+            const testcase = testcases.find(t => t.id === testcaseId);
+            if (!testcase) {
+                return jsonRes(res, 404, { success: false, message: '用例不存在' });
+            }
+
+            const results = { success: [], failed: [], duplicates: [] };
+
+            requirementIds.forEach(reqId => {
+                const req = requirements.find(r => r.id === reqId);
+                if (!req) {
+                    results.failed.push({ requirementId: reqId, reason: '需求不存在' });
+                    return;
+                }
+
+                const existing = traces.find(t => t.requirementId === reqId && t.testcaseId === testcaseId);
+                if (existing) {
+                    results.duplicates.push({ requirementId: reqId, traceId: existing.id });
+                    return;
+                }
+
+                const newTrace = {
+                    id: generateUniqueId(),
+                    requirementId: reqId,
+                    testcaseId: testcaseId,
+                    createdAt: new Date().toISOString()
+                };
+
+                traces.push(newTrace);
+                results.success.push(newTrace);
+            });
+
+            saveData();
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: `成功关联 ${results.success.length} 个需求`,
+                data: results 
+            });
+        }
+
         // ===== 批量创建追踪关系 API =====
         if (url === '/api/traces/batch' && method === 'POST') {
             const body = await parseBody(req);
@@ -1014,6 +1171,61 @@ async function handleApiRequest(req, res, fullUrl) {
                 success: true, 
                 message: `批量创建完成：成功${results.success.length}条，重复${results.duplicates.length}条，失败${results.failed.length}条`,
                 data: results 
+            });
+        }
+
+        // ===== 批量删除追踪关系 API =====
+        if (url === '/api/traces/batch-delete' && method === 'POST') {
+            const body = await parseBody(req);
+            const { traceIds } = body;
+
+            if (!traceIds || !Array.isArray(traceIds) || traceIds.length === 0) {
+                return jsonRes(res, 400, { success: false, message: '追踪 ID 列表不能为空' });
+            }
+
+            const results = {
+                deleted: [],
+                notFound: []
+            };
+
+            traceIds.forEach(traceId => {
+                const traceIndex = traces.findIndex(t => t.id === traceId);
+                if (traceIndex !== -1) {
+                    const deleted = traces.splice(traceIndex, 1);
+                    results.deleted.push({ traceId, ...deleted[0] });
+                } else {
+                    results.notFound.push(traceId);
+                }
+            });
+
+            saveData();
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: `批量删除完成：成功${results.deleted.length}条，未找到${results.notFound.length}条`,
+                data: results 
+            });
+        }
+
+        // ===== 按需求批量删除追踪关系 API =====
+        if (url === '/api/traces/batch-delete-by-requirement' && method === 'POST') {
+            const body = await parseBody(req);
+            const { requirementIds } = body;
+
+            if (!requirementIds || !Array.isArray(requirementIds) || requirementIds.length === 0) {
+                return jsonRes(res, 400, { success: false, message: '需求 ID 列表不能为空' });
+            }
+
+            const beforeCount = traces.length;
+            traces = traces.filter(t => !requirementIds.includes(t.requirementId));
+            const deletedCount = beforeCount - traces.length;
+
+            saveData();
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: `批量删除完成：删除了 ${deletedCount} 条追踪关系`,
+                data: { deletedCount, requirementIds } 
             });
         }
 
@@ -1234,11 +1446,424 @@ async function handleApiRequest(req, res, fullUrl) {
             }
         }
 
+        // ===== 导出追溯报告 API - 增强版（支持 HTML/PDF） =====
+        if (url === '/api/trace-report/export' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            const format = urlObj.searchParams.get('format') || 'html';
+            
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
+            }
+
+            const projectReqs = requirements.filter(r => r.projectId === projectId);
+            const projectTcs = testcases.filter(t => t.projectId === projectId);
+            
+            // 计算覆盖率统计
+            const coveredReqs = new Set();
+            const coveredTcs = new Set();
+            const traceDetails = [];
+            
+            traces.forEach(t => {
+                const req = projectReqs.find(r => r.id === t.requirementId);
+                const tc = projectTcs.find(tc => tc.id === t.testcaseId);
+                if (req && tc) {
+                    coveredReqs.add(req.id);
+                    coveredTcs.add(tc.id);
+                    traceDetails.push({
+                        requirementId: req.reqId,
+                        requirementDesc: req.description,
+                        testcaseId: tc.tcId,
+                        testcaseSteps: tc.steps,
+                        testcaseResult: tc.expectedResult,
+                        traceCreatedAt: t.createdAt
+                    });
+                }
+            });
+            
+            const stats = {
+                totalRequirements: projectReqs.length,
+                totalTestcases: projectTcs.length,
+                totalTraces: traces.length,
+                coveredRequirements: coveredReqs.size,
+                uncoveredRequirements: projectReqs.length - coveredReqs.size,
+                coveredTestcases: coveredTcs.size,
+                uncoveredTestcases: projectTcs.length - coveredTcs.size,
+                coverageRate: projectReqs.length > 0 ? Math.round(coveredReqs.size / projectReqs.length * 100) : 0
+            };
+
+            // 生成 HTML 报告
+            if (format === 'html') {
+                const project = projects.find(p => p.id === projectId);
+                const reportTime = new Date().toLocaleString('zh-CN');
+                
+                // 未覆盖的需求列表
+                const uncoveredReqs = projectReqs.filter(r => !coveredReqs.has(r.id));
+                
+                // 未覆盖的用例列表（没有被任何需求关联的用例）
+                const orphanTcs = projectTcs.filter(tc => !coveredTcs.has(tc.id));
+                
+                let html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>需求追踪报告 - ${project?.name || '未知项目'}</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        .header .info {
+            color: #666;
+            font-size: 14px;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-card.danger {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #e1e1e1;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover {
+            background: #f9f9ff;
+        }
+        .coverage-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .coverage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e1e1;
+            color: #999;
+            font-size: 12px;
+        }
+        @media print {
+            body { max-width: 100%; }
+            .stat-card { page-break-inside: avoid; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 需求追踪报告</h1>
+        <div class="info">
+            <p><strong>项目名称：</strong>${project?.name || '未知项目'}</p>
+            <p><strong>生成时间：</strong>${reportTime}</p>
+        </div>
+    </div>
+    
+    <div class="summary">
+        <div class="stat-card">
+            <div class="stat-number">${stats.totalRequirements}</div>
+            <div class="stat-label">📋 总需求数</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-number">${stats.coveredRequirements}</div>
+            <div class="stat-label">✅ 已覆盖需求</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-number">${stats.uncoveredRequirements}</div>
+            <div class="stat-label">⚠️ 未覆盖需求</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.totalTestcases}</div>
+            <div class="stat-label">🧪 总用例数</div>
+        </div>
+        <div class="stat-card danger">
+            <div class="stat-number">${stats.coverageRate}%</div>
+            <div class="stat-label">📈 覆盖率</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📈 覆盖率概览</h2>
+        <div class="coverage-bar">
+            <div class="coverage-fill" style="width: ${stats.coverageRate}%">
+                ${stats.coverageRate}% 需求已追踪
+            </div>
+        </div>
+        <p style="color: #666; margin-top: 10px;">
+            已建立 <strong>${stats.totalTraces}</strong> 条追踪关系，
+            覆盖 <strong>${stats.coveredRequirements}</strong> 个需求，
+            关联 <strong>${stats.coveredTestcases}</strong> 个用例
+        </p>
+    </div>
+
+    <div class="section">
+        <h2>🔗 追踪关系详情</h2>
+        ${traceDetails.length > 0 ? `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 100px;">需求 ID</th>
+                    <th>需求描述</th>
+                    <th style="width: 100px;">用例 ID</th>
+                    <th>操作步骤</th>
+                    <th>预期结果</th>
+                    <th style="width: 150px;">追踪时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${traceDetails.map(t => `
+                <tr>
+                    <td><strong>${t.requirementId}</strong></td>
+                    <td>${(t.requirementDesc || '').substring(0, 100)}${(t.requirementDesc || '').length > 100 ? '...' : ''}</td>
+                    <td>${t.testcaseId}</td>
+                    <td>${(t.testcaseSteps || '').substring(0, 80)}${(t.testcaseSteps || '').length > 80 ? '...' : ''}</td>
+                    <td>${(t.testcaseResult || '-').substring(0, 50)}${(t.testcaseResult || '').length > 50 ? '...' : ''}</td>
+                    <td>${new Date(t.traceCreatedAt).toLocaleDateString('zh-CN')}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        ` : '<p style="color: #999; text-align: center; padding: 40px;">暂无追踪关系</p>'}
+    </div>
+
+    ${uncoveredReqs.length > 0 ? `
+    <div class="section">
+        <h2>⚠️ 未覆盖的需求 <span class="badge badge-danger">${uncoveredReqs.length}</span></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 100px;">需求 ID</th>
+                    <th>需求描述</th>
+                    <th style="width: 150px;">创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${uncoveredReqs.map(r => `
+                <tr>
+                    <td><strong>${r.reqId}</strong></td>
+                    <td>${(r.description || '').substring(0, 150)}${(r.description || '').length > 150 ? '...' : ''}</td>
+                    <td>${new Date(r.createdAt).toLocaleDateString('zh-CN')}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    ${orphanTcs.length > 0 ? `
+    <div class="section">
+        <h2>🔍 未关联的用例 <span class="badge badge-warning">${orphanTcs.length}</span></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 100px;">用例 ID</th>
+                    <th>操作步骤</th>
+                    <th style="width: 150px;">创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orphanTcs.map(tc => `
+                <tr>
+                    <td><strong>${tc.tcId}</strong></td>
+                    <td>${(tc.steps || '').substring(0, 150)}${(tc.steps || '').length > 150 ? '...' : ''}</td>
+                    <td>${new Date(tc.createdAt).toLocaleDateString('zh-CN')}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    <div class="footer">
+        <p>此报告由需求管理系统自动生成</p>
+        <p>生成时间：${reportTime}</p>
+    </div>
+</body>
+</html>`;
+
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename="trace_report_${project?.name || projectId}_${new Date().toISOString().split('T')[0]}.html"`);
+                res.writeHead(200);
+                res.end(html);
+                return;
+            }
+
+            // JSON 格式
+            return jsonRes(res, 200, {
+                success: true,
+                data: {
+                    stats,
+                    traceDetails,
+                    uncoveredRequirements: uncoveredReqs.map(r => ({
+                        id: r.id,
+                        reqId: r.reqId,
+                        description: r.description
+                    })),
+                    orphanTestcases: orphanTcs.map(tc => ({
+                        id: tc.id,
+                        tcId: tc.tcId,
+                        steps: tc.steps
+                    }))
+                }
+            });
+        }
+
+        // ===== 获取覆盖率统计 API =====
+        if (url === '/api/trace-coverage/stats' && method === 'GET') {
+            const urlObj = new URL('http://localhost' + fullUrl);
+            const projectId = urlObj.searchParams.get('projectId');
+            
+            if (!projectId) {
+                return jsonRes(res, 400, { success: false, message: '项目 ID 不能为空' });
+            }
+
+            const projectReqs = requirements.filter(r => r.projectId === projectId);
+            const projectTcs = testcases.filter(t => t.projectId === projectId);
+            
+            const coveredReqs = new Set();
+            const coveredTcs = new Set();
+            const reqToTcs = {}; // 需求→用例映射
+            const tcToReqs = {}; // 用例→需求映射
+            
+            traces.forEach(t => {
+                const req = projectReqs.find(r => r.id === t.requirementId);
+                const tc = projectTcs.find(tc => tc.id === t.testcaseId);
+                if (req && tc) {
+                    coveredReqs.add(req.id);
+                    coveredTcs.add(tc.id);
+                    
+                    // 构建双向映射
+                    if (!reqToTcs[req.id]) reqToTcs[req.id] = [];
+                    reqToTcs[req.id].push({ tcId: tc.tcId, tcName: tc.steps });
+                    
+                    if (!tcToReqs[tc.id]) tcToReqs[tc.id] = [];
+                    tcToReqs[tc.id].push({ reqId: req.reqId, reqName: req.description });
+                }
+            });
+            
+            const stats = {
+                totalRequirements: projectReqs.length,
+                totalTestcases: projectTcs.length,
+                totalTraces: traces.length,
+                coveredRequirements: coveredReqs.size,
+                uncoveredRequirements: projectReqs.length - coveredReqs.size,
+                coveredTestcases: coveredTcs.size,
+                uncoveredTestcases: projectTcs.length - coveredTcs.size,
+                coverageRate: projectReqs.length > 0 ? Math.round(coveredReqs.size / projectReqs.length * 100) : 0,
+                testcaseCoverageRate: projectTcs.length > 0 ? Math.round(coveredTcs.size / projectTcs.length * 100) : 0,
+                avgTracesPerRequirement: projectReqs.length > 0 ? (traces.length / projectReqs.length).toFixed(2) : 0,
+                bidirectionalMatrix: {
+                    requirementToTestcases: reqToTcs,
+                    testcaseToRequirements: tcToReqs
+                }
+            };
+
+            return jsonRes(res, 200, { success: true, data: stats });
+        }
+
         // ===== 基线版本 API =====
         if (url === '/api/baselines' && method === 'GET') {
             const urlObj = new URL('http://localhost' + fullUrl);
             const projectId = urlObj.searchParams.get('projectId');
             const type = urlObj.searchParams.get('type'); // 'requirement' or 'testcase'
+            const status = urlObj.searchParams.get('status'); // 'active', 'archived', 'superseded'
+            const sortBy = urlObj.searchParams.get('sortBy') || 'createdAt'; // 'createdAt', 'version', 'name'
+            const sortOrder = urlObj.searchParams.get('sortOrder') || 'desc'; // 'asc', 'desc'
             
             let filteredBaselines = baselines;
             if (projectId) {
@@ -1247,8 +1872,53 @@ async function handleApiRequest(req, res, fullUrl) {
             if (type) {
                 filteredBaselines = filteredBaselines.filter(b => b.type === type);
             }
+            if (status) {
+                filteredBaselines = filteredBaselines.filter(b => b.status === status);
+            }
             
-            return jsonRes(res, 200, { success: true, data: filteredBaselines });
+            // 排序
+            filteredBaselines.sort((a, b) => {
+                let aVal = a[sortBy];
+                let bVal = b[sortBy];
+                
+                if (sortBy === 'version') {
+                    // 版本号特殊排序 (V1.0, V1.1, V2.0)
+                    const aMatch = aVal.match(/V(\d+)\.(\d+)/);
+                    const bMatch = bVal.match(/V(\d+)\.(\d+)/);
+                    if (aMatch && bMatch) {
+                        const aMajor = parseInt(aMatch[1]);
+                        const aMinor = parseInt(aMatch[2]);
+                        const bMajor = parseInt(bMatch[1]);
+                        const bMinor = parseInt(bMatch[2]);
+                        if (aMajor !== bMajor) return sortOrder === 'asc' ? aMajor - bMajor : bMajor - aMajor;
+                        return sortOrder === 'asc' ? aMinor - bMinor : bMinor - aMinor;
+                    }
+                }
+                
+                if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // 添加统计信息
+            const stats = {
+                total: filteredBaselines.length,
+                byType: {
+                    requirement: filteredBaselines.filter(b => b.type === 'requirement').length,
+                    testcase: filteredBaselines.filter(b => b.type === 'testcase').length
+                },
+                byStatus: {
+                    active: filteredBaselines.filter(b => b.status === 'active').length,
+                    archived: filteredBaselines.filter(b => b.status === 'archived').length,
+                    superseded: filteredBaselines.filter(b => b.status === 'superseded').length
+                }
+            };
+            
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: filteredBaselines,
+                stats 
+            });
         }
 
         if (url === '/api/baselines' && method === 'POST') {
@@ -1263,12 +1933,50 @@ async function handleApiRequest(req, res, fullUrl) {
                 ? requirements.filter(r => itemIds.includes(r.id))
                 : testcases.filter(t => itemIds.includes(t.id));
 
+            if (items.length !== itemIds.length) {
+                return jsonRes(res, 400, { success: false, message: '部分项不存在' });
+            }
+
+            // 自动生成版本号：如果未指定，查找该项目该类型的最新版本并递增
+            let finalVersion = version;
+            if (!finalVersion) {
+                const projectBaselines = baselines.filter(b => b.projectId === projectId && b.type === type);
+                if (projectBaselines.length === 0) {
+                    finalVersion = 'V1.0';
+                } else {
+                    // 提取最新版本号
+                    const versions = projectBaselines.map(b => b.version);
+                    versions.sort((a, b) => {
+                        const aMatch = a.match(/V(\d+)\.(\d+)/);
+                        const bMatch = b.match(/V(\d+)\.(\d+)/);
+                        if (aMatch && bMatch) {
+                            const aMajor = parseInt(aMatch[1]);
+                            const aMinor = parseInt(aMatch[2]);
+                            const bMajor = parseInt(bMatch[1]);
+                            const bMinor = parseInt(bMatch[2]);
+                            if (aMajor !== bMajor) return bMajor - aMajor;
+                            return bMinor - aMinor;
+                        }
+                        return b.localeCompare(a);
+                    });
+                    const latestVersion = versions[0];
+                    const versionMatch = latestVersion.match(/V(\d+)\.(\d+)/);
+                    if (versionMatch) {
+                        const major = parseInt(versionMatch[1]);
+                        const minor = parseInt(versionMatch[2]);
+                        finalVersion = `V${major}.${minor + 1}`;
+                    } else {
+                        finalVersion = 'V1.0';
+                    }
+                }
+            }
+
             const newBaseline = {
                 id: generateUniqueId(),
                 projectId,
                 type,
                 name,
-                version: version || 'V1',
+                version: finalVersion,
                 items: items.map(item => ({
                     id: item.id,
                     reqId: item.reqId || item.tcId,
@@ -1276,14 +1984,28 @@ async function handleApiRequest(req, res, fullUrl) {
                     snapshot: JSON.parse(JSON.stringify(item))
                 })),
                 createdAt: new Date().toISOString(),
-                createdBy: 'admin'
+                createdBy: 'admin',
+                status: 'active' // active, archived, superseded
             };
 
             baselines.push(newBaseline);
-            recordHistory(type, 'baseline', 'baseline', { baselineId: newBaseline.id, name, version });
+            recordHistory(type, 'baseline', 'baseline', { 
+                baselineId: newBaseline.id, 
+                name, 
+                version: finalVersion,
+                itemCount: items.length 
+            });
             saveData();
 
-            return jsonRes(res, 201, { success: true, message: '基线创建成功', data: newBaseline });
+            return jsonRes(res, 201, { 
+                success: true, 
+                message: '基线创建成功', 
+                data: newBaseline,
+                versionInfo: {
+                    autoGenerated: !version,
+                    previousVersion: baselines.filter(b => b.projectId === projectId && b.type === type).length > 1 ? versions[1] : null
+                }
+            });
         }
 
         if (url.match(/^\/api\/baselines\/[^\/]+$/) && method === 'GET') {
@@ -1294,7 +2016,73 @@ async function handleApiRequest(req, res, fullUrl) {
                 return jsonRes(res, 404, { success: false, message: '基线不存在' });
             }
 
-            return jsonRes(res, 200, { success: true, data: baseline });
+            // 计算基线摘要信息
+            const summary = {
+                totalItems: baseline.items.length,
+                byStatus: {
+                    active: baseline.items.filter(i => i.snapshot.status === 'active' || !i.snapshot.status).length,
+                    inactive: baseline.items.filter(i => i.snapshot.status === 'inactive').length
+                }
+            };
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                data: baseline,
+                summary 
+            });
+        }
+
+        // ===== 基线摘要 API - 快速获取基线概览 =====
+        if (url.match(/^\/api\/baselines\/[^\/]+\/summary$/) && method === 'GET') {
+            const baselineId = url.split('/')[3];
+            const baseline = baselines.find(b => b.id === baselineId);
+            
+            if (!baseline) {
+                return jsonRes(res, 404, { success: false, message: '基线不存在' });
+            }
+
+            // 获取上一个和下一个基线版本
+            const projectBaselines = baselines
+                .filter(b => b.projectId === baseline.projectId && b.type === baseline.type)
+                .sort((a, b) => {
+                    const aMatch = a.version.match(/V(\d+)\.(\d+)/);
+                    const bMatch = b.version.match(/V(\d+)\.(\d+)/);
+                    if (aMatch && bMatch) {
+                        const aMajor = parseInt(aMatch[1]);
+                        const aMinor = parseInt(aMatch[2]);
+                        const bMajor = parseInt(bMatch[1]);
+                        const bMinor = parseInt(bMatch[2]);
+                        if (aMajor !== bMajor) return aMajor - bMajor;
+                        return aMinor - bMinor;
+                    }
+                    return a.version.localeCompare(b.version);
+                });
+            
+            const currentIndex = projectBaselines.findIndex(b => b.id === baselineId);
+            const prevBaseline = currentIndex > 0 ? projectBaselines[currentIndex - 1] : null;
+            const nextBaseline = currentIndex < projectBaselines.length - 1 ? projectBaselines[currentIndex + 1] : null;
+
+            const summary = {
+                id: baseline.id,
+                version: baseline.version,
+                name: baseline.name,
+                type: baseline.type,
+                status: baseline.status,
+                createdAt: baseline.createdAt,
+                createdBy: baseline.createdBy,
+                itemCount: baseline.items.length,
+                items: baseline.items.map(item => ({
+                    id: item.id,
+                    reqId: item.reqId,
+                    description: item.description
+                })),
+                navigation: {
+                    previous: prevBaseline ? { id: prevBaseline.id, version: prevBaseline.version } : null,
+                    next: nextBaseline ? { id: nextBaseline.id, version: nextBaseline.version } : null
+                }
+            };
+
+            return jsonRes(res, 200, { success: true, data: summary });
         }
 
         if (url.match(/^\/api\/baselines\/[^\/]+$/) && method === 'DELETE') {
@@ -1305,10 +2093,54 @@ async function handleApiRequest(req, res, fullUrl) {
                 return jsonRes(res, 404, { success: false, message: '基线不存在' });
             }
 
+            const baseline = baselines[baselineIndex];
+            
+            // 如果是最后一个基线，不允许删除
+            const projectBaselines = baselines.filter(b => b.projectId === baseline.projectId && b.type === baseline.type);
+            if (projectBaselines.length === 1) {
+                return jsonRes(res, 400, { success: false, message: '不能删除最后一个基线' });
+            }
+
             baselines.splice(baselineIndex, 1);
             saveData();
 
-            return jsonRes(res, 200, { success: true, message: '基线已删除' });
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: '基线已删除',
+                data: {
+                    deletedBaseline: {
+                        id: baseline.id,
+                        version: baseline.version,
+                        name: baseline.name
+                    }
+                }
+            });
+        }
+
+        // ===== 基线归档 API - 将基线标记为已归档 =====
+        if (url.match(/^\/api\/baselines\/[^\/]+\/archive$/) && method === 'POST') {
+            const baselineId = url.split('/')[3];
+            const baselineIndex = baselines.findIndex(b => b.id === baselineId);
+            
+            if (baselineIndex === -1) {
+                return jsonRes(res, 404, { success: false, message: '基线不存在' });
+            }
+
+            baselines[baselineIndex].status = 'archived';
+            baselines[baselineIndex].archivedAt = new Date().toISOString();
+            saveData();
+
+            return jsonRes(res, 200, { 
+                success: true, 
+                message: '基线已归档',
+                data: {
+                    id: baselines[baselineIndex].id,
+                    version: baselines[baselineIndex].version,
+                    name: baselines[baselineIndex].name,
+                    status: 'archived',
+                    archivedAt: baselines[baselineIndex].archivedAt
+                }
+            });
         }
 
         // ===== 基线对比 API - 比较两个基线版本的差异 =====
@@ -1398,16 +2230,29 @@ async function handleApiRequest(req, res, fullUrl) {
                 }
             });
 
+            // 计算详细的变更统计
+            const changeStats = {
+                added: compareResult.added.length,
+                removed: compareResult.removed.length,
+                modified: compareResult.modified.length,
+                unchanged: compareResult.unchanged.length,
+                total1: baseline1.items.length,
+                total2: baseline2.items.length,
+                changeRate: baseline1.items.length > 0 
+                    ? ((compareResult.modified.length + compareResult.added.length + compareResult.removed.length) / baseline1.items.length * 100).toFixed(2) + '%'
+                    : '0%'
+            };
+
             return jsonRes(res, 200, { 
                 success: true, 
                 data: compareResult,
-                stats: {
-                    added: compareResult.added.length,
-                    removed: compareResult.removed.length,
-                    modified: compareResult.modified.length,
-                    unchanged: compareResult.unchanged.length,
-                    total1: baseline1.items.length,
-                    total2: baseline2.items.length
+                stats: changeStats,
+                summary: {
+                    hasChanges: compareResult.added.length > 0 || compareResult.removed.length > 0 || compareResult.modified.length > 0,
+                    totalChanges: compareResult.added.length + compareResult.removed.length + compareResult.modified.length,
+                    stabilityScore: baseline1.items.length > 0 
+                        ? (1 - (compareResult.modified.length + compareResult.added.length + compareResult.removed.length) / baseline1.items.length) * 100
+                        : 100
                 }
             });
         }
@@ -1415,6 +2260,8 @@ async function handleApiRequest(req, res, fullUrl) {
         // ===== 基线恢复 API - 将当前数据恢复到某个基线版本 =====
         if (url.match(/^\/api\/baselines\/[^\/]+\/restore$/) && method === 'POST') {
             const baselineId = url.split('/')[3];
+            const body = await parseBody(req);
+            const { createBackup = true } = body; // 是否创建备份基线
             const baseline = baselines.find(b => b.id === baselineId);
             
             if (!baseline) {
@@ -1424,6 +2271,35 @@ async function handleApiRequest(req, res, fullUrl) {
             // 恢复数据
             const targetType = baseline.type === 'requirement' ? requirements : testcases;
             const restoredCount = [];
+            const backupItems = [];
+            
+            // 如果需要创建备份，先保存当前状态
+            if (createBackup) {
+                const currentItems = targetType.filter(item => 
+                    baseline.items.some(bi => bi.id === item.id)
+                );
+                if (currentItems.length > 0) {
+                    const backupBaseline = {
+                        id: generateUniqueId(),
+                        projectId: baseline.projectId,
+                        type: baseline.type,
+                        name: `${baseline.name} - 回退前备份`,
+                        version: baseline.version + '-backup',
+                        items: currentItems.map(item => ({
+                            id: item.id,
+                            reqId: item.reqId || item.tcId,
+                            description: item.description || item.steps,
+                            snapshot: JSON.parse(JSON.stringify(item))
+                        })),
+                        createdAt: new Date().toISOString(),
+                        createdBy: 'admin',
+                        status: 'archived',
+                        isAutoBackup: true
+                    };
+                    baselines.push(backupBaseline);
+                    backupItems.push(backupBaseline);
+                }
+            }
             
             baseline.items.forEach(baselineItem => {
                 const currentIndex = targetType.findIndex(item => item.id === baselineItem.id);
@@ -1433,7 +2309,12 @@ async function handleApiRequest(req, res, fullUrl) {
                     const oldData = JSON.parse(JSON.stringify(targetType[currentIndex]));
                     targetType[currentIndex] = JSON.parse(JSON.stringify(baselineItem.snapshot));
                     targetType[currentIndex].updatedAt = new Date().toISOString();
-                    restoredCount.push({ id: baselineItem.id, action: 'updated', reqId: baselineItem.reqId });
+                    restoredCount.push({ 
+                        id: baselineItem.id, 
+                        action: 'updated', 
+                        reqId: baselineItem.reqId,
+                        hasChanges: JSON.stringify(oldData) !== JSON.stringify(baselineItem.snapshot)
+                    });
                     recordHistory(baseline.type, baselineItem.id, 'restore', { 
                         oldData, 
                         newData: baselineItem.snapshot,
@@ -1445,7 +2326,11 @@ async function handleApiRequest(req, res, fullUrl) {
                     const newItem = JSON.parse(JSON.stringify(baselineItem.snapshot));
                     newItem.updatedAt = new Date().toISOString();
                     targetType.push(newItem);
-                    restoredCount.push({ id: baselineItem.id, action: 'restored', reqId: baselineItem.reqId });
+                    restoredCount.push({ 
+                        id: baselineItem.id, 
+                        action: 'restored', 
+                        reqId: baselineItem.reqId 
+                    });
                     recordHistory(baseline.type, baselineItem.id, 'restore', { 
                         action: 'restored',
                         newData: baselineItem.snapshot,
@@ -1457,15 +2342,30 @@ async function handleApiRequest(req, res, fullUrl) {
 
             saveData();
 
+            // 统计信息
+            const stats = {
+                total: restoredCount.length,
+                updated: restoredCount.filter(r => r.action === 'updated').length,
+                restored: restoredCount.filter(r => r.action === 'restored').length,
+                hasChanges: restoredCount.filter(r => r.hasChanges).length,
+                backupCreated: backupItems.length > 0
+            };
+
             return jsonRes(res, 200, { 
                 success: true, 
-                message: `成功恢复 ${restoredCount.length} 项`,
+                message: `成功恢复 ${stats.total} 项`,
                 data: {
                     baselineId,
                     version: baseline.version,
                     name: baseline.name,
                     type: baseline.type,
-                    restoredItems: restoredCount
+                    restoredAt: new Date().toISOString(),
+                    stats,
+                    backup: backupItems.length > 0 ? {
+                        id: backupItems[0].id,
+                        name: backupItems[0].name,
+                        version: backupItems[0].version
+                    } : null
                 }
             });
         }

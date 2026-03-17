@@ -871,6 +871,16 @@
                         <option value="medium">🟡 中</option>
                         <option value="low">🟢 低</option>
                     </select>
+                    <select id="sortRequirements" onchange="sortAndFilterRequirements()" style="padding: 8px 12px; border: 1px solid #e1e1e1; border-radius: 6px;">
+                        <option value="createdAt_desc">🕐 最新创建</option>
+                        <option value="createdAt_asc">🕐 最早创建</option>
+                        <option value="updatedAt_desc">📝 最新修改</option>
+                        <option value="updatedAt_asc">📝 最早修改</option>
+                        <option value="priority_desc">🔥 优先级高→低</option>
+                        <option value="priority_asc">🔥 优先级低→高</option>
+                        <option value="reqId_asc">🔖 ID 升序</option>
+                        <option value="reqId_desc">🔖 ID 降序</option>
+                    </select>
                 </div>
                 <div class="table-container">
                     <table id="requirementsTable">
@@ -965,9 +975,11 @@
                 <div class="toolbar">
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <button class="btn-primary" onclick="loadTraceMatrix()">🔄 刷新矩阵</button>
+                        <button class="btn-secondary" onclick="showTraceReportModal()">📊 追溯报告</button>
                         <button class="btn-secondary" onclick="exportMatrixCSV()">📊 导出 CSV</button>
                         <button class="btn-secondary" onclick="exportMatrixJSON()">📄 导出 JSON</button>
-                        <button class="btn-secondary" onclick="showBatchModal()">🔗 批量关联</button>
+                        <button class="btn-secondary" onclick="showBatchLinkModal()">🔗 批量关联</button>
+                        <button class="btn-secondary" onclick="showBatchUnlinkModal()">✂️ 批量取消</button>
                         <button class="btn-secondary" onclick="showRecommendations()">💡 智能推荐</button>
                     </div>
                     <div id="traceStats" style="display: flex; gap: 20px; font-size: 14px; color: #666;">
@@ -2241,7 +2253,36 @@
                 return matchSearch && matchCategory && matchStatus && matchPriority;
             });
             
+            // 应用排序
+            sortFilteredRequirements();
             renderRequirementsTable(filteredRequirementsData);
+        }
+        
+        // 排序功能
+        function sortAndFilterRequirements() {
+            filterRequirements();
+        }
+        
+        function sortFilteredRequirements() {
+            const sortValue = document.getElementById('sortRequirements').value;
+            if (!sortValue) return;
+            
+            const [field, order] = sortValue.split('_');
+            
+            filteredRequirementsData.sort((a, b) => {
+                let comparison = 0;
+                
+                if (field === 'createdAt' || field === 'updatedAt') {
+                    comparison = new Date(a[field]) - new Date(b[field]);
+                } else if (field === 'priority') {
+                    const priorityOrder = { 'urgent': 4, 'high': 3, 'medium': 2, 'low': 1 };
+                    comparison = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+                } else if (field === 'reqId') {
+                    comparison = (a.reqId || '').localeCompare(b.reqId || '', 'zh-CN');
+                }
+                
+                return order === 'desc' ? -comparison : comparison;
+            });
         }
         
         // 搜索框实时搜索
@@ -2283,9 +2324,23 @@
             
             // 填充模态框数据
             document.getElementById('requirementModal').querySelector('h2').textContent = '编辑需求';
+            
+            // P0 字段
+            if (document.getElementById('reqTitle')) {
+                document.getElementById('reqTitle').value = req.title || '';
+            }
+            document.getElementById('reqStatus').value = req.status || 'draft';
+            document.getElementById('reqPriority').value = req.priority || 'medium';
+            
+            // P1 字段
+            document.getElementById('reqCategory').value = req.category || '用户需求';
+            if (document.getElementById('reqAssignee')) {
+                document.getElementById('reqAssignee').value = req.assignee || '';
+            }
+            
+            // 其他字段
             document.getElementById('reqHeader').value = req.headerId || '';
             document.getElementById('reqPrefix').value = req.prefix || 'REQ';
-            document.getElementById('reqDescription').value = req.description || '';
             document.getElementById('reqAcceptance').value = req.acceptanceCriteria || '';
             
             // 设置编辑器内容
@@ -3958,6 +4013,222 @@
                 showToast('操作失败', 'error');
             }
         }
+
+        // ===== 追溯报告功能 =====
+        let currentTraceReportData = null;
+
+        async function showTraceReportModal() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            document.getElementById('traceReportModal').classList.add('active');
+            await loadTraceReport();
+        }
+
+        async function loadTraceReport() {
+            try {
+                const response = await fetch(`${API_BASE}/trace-coverage/stats?projectId=${currentProjectId}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showToast('加载报告失败', 'error');
+                    return;
+                }
+
+                currentTraceReportData = data.data;
+                const stats = currentTraceReportData;
+                
+                const content = document.getElementById('traceReportContent');
+                content.innerHTML = `
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #333; margin-bottom: 20px;">📊 覆盖率统计</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.totalRequirements}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">📋 总需求数</div>
+                            </div>
+                            <div style="padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.coveredRequirements}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">✅ 已覆盖需求</div>
+                            </div>
+                            <div style="padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.uncoveredRequirements}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">⚠️ 未覆盖需求</div>
+                            </div>
+                            <div style="padding: 20px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.totalTestcases}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">🧪 总用例数</div>
+                            </div>
+                            <div style="padding: 20px; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.totalTraces}</div>
+                                <div style="font-size: 14px;">🔗 追踪关系</div>
+                            </div>
+                            <div style="padding: 20px; background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #333; border-radius: 12px;">
+                                <div style="font-size: 32px; font-weight: bold;">${stats.coverageRate}%</div>
+                                <div style="font-size: 14px;">📈 覆盖率</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #333; margin-bottom: 15px;">📈 覆盖率进度条</h3>
+                        <div style="background: #e0e0e0; border-radius: 15px; height: 30px; overflow: hidden;">
+                            <div style="width: ${stats.coverageRate}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: width 0.3s ease;">
+                                ${stats.coverageRate}% 需求已追踪
+                            </div>
+                        </div>
+                        <p style="color: #666; margin-top: 10px; font-size: 14px;">
+                            平均每个需求有 <strong>${stats.avgTracesPerRequirement}</strong> 条追踪关系
+                        </p>
+                    </div>
+
+                    ${Object.keys(stats.bidirectionalMatrix.requirementToTestcases).length > 0 ? `
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #333; margin-bottom: 15px;">🔗 需求→用例映射</h3>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px;">
+                            ${Object.entries(stats.bidirectionalMatrix.requirementToTestcases).map(([reqId, tcs]) => {
+                                const req = requirements.find(r => r.id === reqId);
+                                return `
+                                    <div style="padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                                        <strong style="color: #667eea;">${req?.reqId || reqId}</strong>
+                                        <div style="margin-top: 8px; padding-left: 20px;">
+                                            ${tcs.map(tc => `<span style="display:inline-block;padding:4px 8px;background:#e8f5e9;border-radius:4px;margin:2px;font-size:13px;">${tc.tcId}</span>`).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${Object.keys(stats.bidirectionalMatrix.testcaseToRequirements).length > 0 ? `
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #333; margin-bottom: 15px;">🔍 用例→需求映射</h3>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px;">
+                            ${Object.entries(stats.bidirectionalMatrix.testcaseToRequirements).map(([tcId, reqs]) => {
+                                const tc = testcases.find(t => t.id === tcId);
+                                return `
+                                    <div style="padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                                        <strong style="color: #667eea;">${tc?.tcId || tcId}</strong>
+                                        <div style="margin-top: 8px; padding-left: 20px;">
+                                            ${reqs.map(req => `<span style="display:inline-block;padding:4px 8px;background:#fff3cd;border-radius:4px;margin:2px;font-size:13px;">${req.reqId}</span>`).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            } catch (error) {
+                console.error('加载报告失败:', error);
+                showToast('加载报告失败', 'error');
+            }
+        }
+
+        async function exportTraceReport(format) {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            try {
+                const response = await fetch(`${API_BASE}/trace-report/export?projectId=${currentProjectId}&format=${format}`);
+                
+                if (format === 'json') {
+                    const data = await response.json();
+                    const jsonStr = JSON.stringify(data.data, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `trace_report_${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                } else {
+                    const blob = await response.blob();
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `trace_report_${new Date().toISOString().split('T')[0]}.html`;
+                    link.click();
+                }
+                
+                showToast('导出成功', 'success');
+                closeModal('traceReportModal');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('导出失败', 'error');
+            }
+        }
+
+        // ===== 批量取消关联功能 =====
+        function showBatchUnlinkModal() {
+            if (!currentProjectId) { showToast('请先选择项目', 'error'); return; }
+            
+            const modal = document.getElementById('batchUnlinkModal');
+            const list = document.getElementById('unlinkReqList');
+            
+            // 显示所有已有关联的需求
+            const reqsWithTraces = traceMatrixData?.requirements?.filter(req => {
+                const hasTraces = Object.keys(traceMatrixData.traceMap || {}).some(k => k.startsWith(req.id + ':'));
+                return hasTraces;
+            }) || [];
+            
+            if (reqsWithTraces.length === 0) {
+                showToast('没有已关联的需求', 'error');
+                return;
+            }
+            
+            list.innerHTML = reqsWithTraces.map(req => `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px;">
+                    <input type="checkbox" value="${req.id}" data-req-id="${req.reqId}">
+                    <span><strong>${req.reqId}</strong>: ${req.description?.substring(0, 50) || ''}${req.description?.length > 50 ? '...' : ''}</span>
+                </label>
+            `).join('');
+            
+            // 更新计数
+            list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const count = list.querySelectorAll('input[type="checkbox"]:checked').length;
+                    document.getElementById('unlinkCount').textContent = count;
+                });
+            });
+            
+            modal.classList.add('active');
+        }
+
+        async function confirmBatchUnlink() {
+            const list = document.getElementById('unlinkReqList');
+            const checkboxes = list.querySelectorAll('input[type="checkbox"]:checked');
+            const requirementIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (requirementIds.length === 0) {
+                showToast('请选择至少一个需求', 'error');
+                return;
+            }
+            
+            if (!confirm(`确定要取消 ${requirementIds.length} 个需求的所有关联吗？此操作不可恢复！`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/traces/batch-delete-by-requirement`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requirementIds })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeModal('batchUnlinkModal');
+                    loadTraceMatrix();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('操作失败', 'error');
+            }
+        }
+
+        // 重命名现有函数以保持一致性
+        function showBatchLinkModal() {
+            showBatchModal();
+        }
     </script>
 
                 </div>
@@ -4017,6 +4288,54 @@
             <div class="modal-footer">
                 <button class="btn-outline" onclick="closeModal('recommendationModal')">关闭</button>
                 <button class="btn-primary" onclick="loadRecommendations()">🔄 刷新推荐</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 追溯报告模态框 -->
+    <div class="modal-overlay" id="traceReportModal">
+        <div class="modal" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h2>📊 追溯报告</h2>
+                <button class="close-btn" onclick="closeModal('traceReportModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="traceReportContent">
+                    <div style="text-align: center; padding: 40px; color: #999;">
+                        <p>正在加载报告...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('traceReportModal')">关闭</button>
+                <button class="btn-secondary" onclick="exportTraceReport('html')">📄 导出 HTML</button>
+                <button class="btn-secondary" onclick="exportTraceReport('json')">📊 导出 JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量取消关联模态框 -->
+    <div class="modal-overlay" id="batchUnlinkModal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>✂️ 批量取消关联</h2>
+                <button class="close-btn" onclick="closeModal('batchUnlinkModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #856404; font-size: 14px;">
+                        <strong>⚠️ 警告：</strong>此操作将删除选中需求的所有追踪关系，请谨慎操作！
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label>选择要取消关联的需求（已选 <span id="unlinkCount">0</span> 个）</label>
+                    <div id="unlinkReqList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e1e1e1; border-radius: 8px; padding: 10px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeModal('batchUnlinkModal')">取消</button>
+                <button class="btn-danger" onclick="confirmBatchUnlink()">确认取消</button>
             </div>
         </div>
     </div>
