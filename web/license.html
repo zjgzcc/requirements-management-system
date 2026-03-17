@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License 管理 - 需求管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .status-badge.licensed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-badge.trial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-badge.expired {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .info-item {
+            background: #f5f5f5;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .info-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #667eea;
+            color: #667eea;
+        }
+        .btn-outline:hover {
+            background: #667eea;
+            color: white;
+        }
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+        .features-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+        .features-list li:before {
+            content: '✓ ';
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .machine-fingerprint {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .back-link:hover {
+            color: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back-link" onclick="history.back()">← 返回</a>
+        
+        <div class="header">
+            <h1>🔐 License 管理</h1>
+            <p>商用授权管理系统</p>
+        </div>
+
+        <!-- License 状态卡片 -->
+        <div class="card">
+            <h2 class="card-title">📋 License 状态</h2>
+            <div id="licenseStatus">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 试用模式提示 -->
+        <div class="card" id="trialCard" style="display: none;">
+            <h2 class="card-title">🎯 激活系统</h2>
+            <div class="alert alert-warning">
+                <strong>⚠️ 试用模式</strong><br>
+                当前系统处于试用模式，部分功能可能受限。购买正式 License 解锁全部功能。
+            </div>
+            
+            <div class="form-group">
+                <label>客户名称</label>
+                <input type="text" id="customerName" placeholder="请输入客户名称">
+            </div>
+            <div class="form-group">
+                <label>License Key（可选）</label>
+                <input type="text" id="licenseKey" placeholder="如有 License Key 请输入">
+            </div>
+            <button class="btn btn-primary" onclick="activateLicense()">🔓 激活系统</button>
+        </div>
+
+        <!-- 正式授权信息 -->
+        <div class="card" id="licensedCard" style="display: none;">
+            <h2 class="card-title">✨ 授权信息</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">客户名称</div>
+                    <div class="info-value" id="licensedCustomer">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">到期日期</div>
+                    <div class="info-value" id="licensedExpiry">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">剩余天数</div>
+                    <div class="info-value" id="licensedDays">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">授权模式</div>
+                    <div class="info-value">🔒 正式授权</div>
+                </div>
+            </div>
+            
+            <h3 style="margin: 20px 0 10px; font-size: 16px;">🎁 已启用功能</h3>
+            <ul class="features-list" id="licensedFeatures">
+                <li>加载功能列表中...</li>
+            </ul>
+        </div>
+
+        <!-- 机器指纹 -->
+        <div class="card">
+            <h2 class="card-title">💻 机器信息</h2>
+            <div class="info-item">
+                <div class="info-label">机器指纹（硬件绑定）</div>
+                <div class="machine-fingerprint" id="machineFingerprint">获取中...</div>
+            </div>
+            <p style="margin-top: 10px; font-size: 13px; color: #666;">
+                ℹ️ License 与机器指纹绑定，更换硬件后需要重新激活
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://8.215.93.217:8001/api';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadLicenseStatus();
+        });
+
+        async function loadLicenseStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/license/validate`);
+                const data = await response.json();
+                
+                const status = data.data;
+                const statusDiv = document.getElementById('licenseStatus');
+                
+                let statusBadge = '';
+                if (status.mode === 'licensed') {
+                    statusBadge = '<span class="status-badge licensed">✓ 已授权</span>';
+                } else if (status.expired) {
+                    statusBadge = '<span class="status-badge expired">✕ 已过期</span>';
+                } else {
+                    statusBadge = '<span class="status-badge trial">⚠ 试用中</span>';
+                }
+                
+                statusDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <div style="font-size: 14px; color: #666; margin-bottom: 6px;">当前状态</div>
+                            ${statusBadge}
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 6px;">验证消息</div>
+                            <div style="font-size: 15px; color: #333;">${status.message}</div>
+                        </div>
+                    </div>
+                    
+                    ${status.mode === 'trial' ? `
+                        <div class="alert alert-warning">
+                            <strong>试用模式说明：</strong><br>
+                            • 系统可以正常使用基础功能<br>
+                            • 购买正式 License 解锁全部功能和官方支持<br>
+                            • License 与机器硬件绑定，一次购买永久有效
+                        </div>
+                    ` : ''}
+                    
+                    ${status.expired ? `
+                        <div class="alert alert-error">
+                            <strong>License 已过期：</strong><br>
+                            过期日期：${status.expiryDate}<br>
+                            请联系管理员续费或重新激活
+                        </div>
+                    ` : ''}
+                `;
+                
+                // 显示机器指纹
+                if (status.currentFingerprint) {
+                    document.getElementById('machineFingerprint').textContent = status.currentFingerprint;
+                } else if (status.licensedFingerprint) {
+                    document.getElementById('machineFingerprint').textContent = status.licensedFingerprint + ' (已绑定)';
+                }
+                
+                // 根据状态显示不同卡片
+                if (status.mode === 'licensed') {
+                    document.getElementById('trialCard').style.display = 'none';
+                    document.getElementById('licensedCard').style.display = 'block';
+                    
+                    document.getElementById('licensedCustomer').textContent = status.customer || '-';
+                    document.getElementById('licensedExpiry').textContent = status.expiryDate || '-';
+                    document.getElementById('licensedDays').textContent = status.daysLeft + ' 天';
+                    
+                    // 显示功能列表
+                    const featuresList = document.getElementById('licensedFeatures');
+                    if (status.features && status.features.length > 0) {
+                        if (status.features[0] === 'all') {
+                            featuresList.innerHTML = `
+                                <li>全部功能模块</li>
+                                <li>需求管理</li>
+                                <li>用例管理</li>
+                                <li>追踪矩阵</li>
+                                <li>基线版本管理</li>
+                                <li>导出功能（Word/Excel）</li>
+                                <li>官方技术支持</li>
+                            `;
+                        } else {
+                            featuresList.innerHTML = status.features.map(f => `<li>${f}</li>`).join('');
+                        }
+                    }
+                } else {
+                    document.getElementById('trialCard').style.display = 'block';
+                    document.getElementById('licensedCard').style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('加载 License 状态失败:', error);
+                document.getElementById('licenseStatus').innerHTML = `
+                    <div class="alert alert-error">
+                        加载 License 状态失败，请稍后重试
+                    </div>
+                `;
+            }
+        }
+
+        async function activateLicense() {
+            const customer = document.getElementById('customerName').value.trim();
+            const licenseKey = document.getElementById('licenseKey').value.trim();
+            
+            if (!customer) {
+                alert('请输入客户名称');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/license/activate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customer, licenseKey })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('🎉 License 激活成功！\n\n客户：' + data.data.customer + '\n到期：' + data.data.expiry);
+                    location.reload();
+                } else {
+                    alert('激活失败：' + data.message);
+                }
+            } catch (error) {
+                alert('激活失败：' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

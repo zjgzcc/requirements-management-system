@@ -32,6 +32,13 @@ const {
     UPLOADS_DIR
 } = require('./file-upload');
 
+// License 管理器
+const {
+    validateLicense,
+    licenseMiddleware,
+    licenseAPI
+} = require('./license-manager');
+
 const PORT = 8001;
 const WEB_DIR = __dirname;
 const DATA_FILE = path.join(__dirname, 'users.json');
@@ -2001,14 +2008,21 @@ async function handleApiRequest(req, res, fullUrl) {
             }
         }
 
+        // License 管理 API
+        if (url.startsWith('/api/license')) {
+            return licenseAPI(req, res);
+        }
+
         // 健康检查
         if (url === '/api/health' && method === 'GET') {
+            const licenseStatus = validateLicense();
             return jsonRes(res, 200, createSuccessResponse({
                 status: 'healthy',
                 timestamp: new Date().toISOString(),
                 uptime: process.uptime(),
                 memory: process.memoryUsage(),
-                version: '1.0.0'
+                version: '1.0.0',
+                license: licenseStatus
             }, '系统健康'));
         }
 
